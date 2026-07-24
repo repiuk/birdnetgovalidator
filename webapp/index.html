@@ -1,0 +1,942 @@
+<title>BirdNET-Go Validation Candidates</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --bg: #eef2f1;
+    --surface: #ffffff;
+    --fg: #172321;
+    --muted: #5b6b68;
+    --border: #d7e0de;
+    --row-alt: #f5f8f7;
+    --row-hover: #e3ecea;
+    --confirm-bg: #dcefe1;
+    --confirm-fg: #1f6b45;
+    --disagree-bg: #f7e1da;
+    --disagree-fg: #a23a26;
+    --nodet-bg: #e4e9e7;
+    --nodet-fg: #5b6b68;
+    --accent: #3c6e78;
+    --accent-fg: #ffffff;
+    --accept-bg: #2f7d4f;
+    --accept-fg: #ffffff;
+    --reject-bg: #b0402a;
+    --reject-fg: #ffffff;
+    --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1613;
+      --surface: #182220;
+      --fg: #e7ede9;
+      --muted: #93a39d;
+      --border: #2b3733;
+      --row-alt: #141c1a;
+      --row-hover: #1f2b28;
+      --confirm-bg: rgba(76, 175, 111, 0.18);
+      --confirm-fg: #7fd9a0;
+      --disagree-bg: rgba(226, 102, 74, 0.18);
+      --disagree-fg: #f0947e;
+      --nodet-bg: #232f2b;
+      --nodet-fg: #93a39d;
+      --accent: #5b9aa6;
+      --accent-fg: #0a1414;
+      --accept-bg: #3a8f5c;
+      --accept-fg: #f2fbf5;
+      --reject-bg: #b6503a;
+      --reject-fg: #fdf1ec;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    padding: 20px;
+  }
+  h1 { font-size: 1.3rem; margin: 0 0 4px 0; }
+  .subtitle { color: var(--muted); font-size: 0.85rem; margin-bottom: 16px; }
+  .toolbar {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  input[type=text] {
+    flex: 1;
+    min-width: 200px;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--fg);
+    font-size: 0.9rem;
+  }
+  .tab {
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--fg);
+    cursor: pointer;
+    font-size: 0.85rem;
+    white-space: nowrap;
+  }
+  .tab.active { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+  label.compact {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  table { border-collapse: collapse; width: 100%; font-size: 0.85rem; min-width: 780px; }
+  th, td {
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  th {
+    position: sticky;
+    top: 0;
+    background: var(--surface);
+    cursor: pointer;
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  tbody tr:nth-child(even) { background: var(--row-alt); }
+  tbody tr:hover { background: var(--row-hover); }
+  .compact td, .compact th { padding: 4px 10px; }
+  th:nth-child(1), td:nth-child(1),
+  th:nth-child(2), td:nth-child(2),
+  th:nth-child(3), td:nth-child(3) {
+    position: sticky;
+    background: var(--surface);
+  }
+  th:nth-child(1), td:nth-child(1) { left: 0; width: 32px; min-width: 32px; max-width: 32px; text-align: center; }
+  th:nth-child(2), td:nth-child(2) { left: 32px; width: 60px; min-width: 60px; max-width: 60px; overflow: hidden; }
+  th:nth-child(3), td:nth-child(3) { left: 92px; box-shadow: 2px 0 4px -2px rgba(0, 0, 0, 0.25); }
+  th:nth-child(1), th:nth-child(2), th:nth-child(3) { z-index: 3; }
+  td:nth-child(1), td:nth-child(2), td:nth-child(3) { z-index: 1; }
+  tbody tr:nth-child(even) td:nth-child(1), tbody tr:nth-child(even) td:nth-child(2), tbody tr:nth-child(even) td:nth-child(3) { background: var(--row-alt); }
+  tbody tr:hover td:nth-child(1), tbody tr:hover td:nth-child(2), tbody tr:hover td:nth-child(3) { background: var(--row-hover); }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    line-height: 1;
+    cursor: default;
+  }
+  .pill.confirm { background: var(--confirm-bg); color: var(--confirm-fg); }
+  .pill.disagree { background: var(--disagree-bg); color: var(--disagree-fg); }
+  .pill.no_detection { background: var(--nodet-bg); color: var(--nodet-fg); }
+  .pill.not_run { background: transparent; color: var(--muted); font-weight: 400; }
+  select#day {
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--fg);
+    font-size: 0.9rem;
+  }
+  button#run-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 8px;
+    background: var(--accent);
+    color: var(--accent-fg);
+    font-size: 0.9rem;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  button#run-btn:disabled { opacity: 0.6; cursor: default; }
+  button#run-btn.force { background: var(--disagree-fg); }
+  button#refresh-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 8px;
+    background: var(--accent);
+    color: var(--accent-fg);
+    font-size: 0.9rem;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  button#refresh-btn:hover { filter: brightness(0.9); }
+  button#refresh-btn:disabled { opacity: 0.6; cursor: default; }
+  button.bulk-action {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  button.bulk-action:hover { filter: brightness(0.9); }
+  button.bulk-action:disabled { opacity: 0.4; cursor: default; }
+  .btn-accept { background: var(--accept-bg); color: var(--accept-fg); }
+  .btn-reject { background: var(--reject-bg); color: var(--reject-fg); }
+  #selection-count { font-size: 0.85rem; color: var(--muted); }
+  input.param {
+    width: 56px;
+    padding: 4px 6px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--fg);
+    font-size: 0.85rem;
+    font-family: var(--font-mono);
+  }
+  label.force-check { display: flex; align-items: center; gap: 4px; font-size: 0.78rem; color: var(--muted); }
+  #run-status { font-size: 0.8rem; color: var(--muted); }
+  .species-cell { line-height: 1.3; }
+  .species-link { text-decoration: none; color: inherit; }
+  .species-link:hover .species-common { text-decoration: underline; color: var(--accent); }
+  .species-common { display: block; }
+  .species-sci { display: block; font-style: italic; color: var(--muted); font-size: 0.78rem; }
+  .sub { color: var(--muted); font-size: 0.78rem; }
+  td.mono, .model2-cell .sub {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.8rem;
+  }
+  .model2-cell { line-height: 1.3; }
+  .model2-sci { display: block; font-style: italic; color: var(--muted); font-size: 0.78rem; }
+  .model2-common { display: block; font-size: 0.78rem; }
+  .compact .species-sci,
+  .compact .model2-sci,
+  .compact .model2-common { display: none; }
+  button.play {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--fg);
+    border-radius: 999px;
+    width: 30px;
+    height: 30px;
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
+  button.play.playing { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+  button.player-close {
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    border-radius: 999px;
+    width: 26px;
+    height: 26px;
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+  }
+  button.player-close:hover { background: var(--row-hover); color: var(--fg); }
+  #player-bar {
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+    margin-top: 14px;
+    padding: 10px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: 0 -2px 8px -2px rgba(0, 0, 0, 0.25);
+    display: none;
+    align-items: center;
+    gap: 12px;
+  }
+  #player-bar.active { display: flex; }
+  #player-bar audio { flex: 1; height: 32px; }
+  .count { color: var(--muted); font-weight: 400; }
+  .no-clip { opacity: 0.4; }
+  #confirm-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  #confirm-overlay.active { display: flex; }
+  #confirm-box {
+    background: var(--surface);
+    color: var(--fg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 22px;
+    max-width: 360px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  }
+  #confirm-box p { margin: 0 0 18px 0; font-size: 0.95rem; white-space: pre-line; max-height: 40vh; overflow-y: auto; }
+  .confirm-actions { display: flex; gap: 10px; justify-content: flex-end; }
+  .select-all-mobile { display: none; }
+  button.icon-btn {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--fg);
+    border-radius: 8px;
+    width: 40px;
+    height: 40px;
+    font-size: 1.1rem;
+    cursor: pointer;
+    flex: none;
+  }
+  .dropdown-panel { display: contents; }
+  .tabs-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .toolbar-actions-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .toolbar-actions-buttons {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  @media (max-width: 640px) {
+    body { padding: 12px; padding-bottom: 108px; }
+    h1 { font-size: 1.15rem; }
+    .subtitle { font-size: 0.78rem; }
+
+    .toolbar { gap: 8px; margin-bottom: 8px; }
+    .toolbar-controls select#day { flex: 1; min-width: 0; }
+    .toolbar-controls button#refresh-btn { min-height: 40px; }
+
+    button.icon-btn { display: flex; }
+
+    .dropdown-panel {
+      display: none;
+      width: 100%;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 10px;
+      margin-top: 4px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+    }
+    .dropdown-panel.open { display: flex; }
+    #menu-panel button#run-btn { min-height: 44px; font-size: 1rem; }
+    #menu-panel input.param { width: 70px; }
+    .tabs-row { gap: 8px; }
+
+    .toolbar-actions {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 20;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 6px;
+      margin: 0;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+      box-shadow: 0 -2px 8px -2px rgba(0, 0, 0, 0.25);
+    }
+    .toolbar-actions-info { justify-content: space-between; font-size: 0.78rem; }
+    .toolbar-actions-buttons button.bulk-action {
+      flex: 1;
+      min-height: 40px;
+      font-size: 0.9rem;
+      padding: 8px 10px;
+    }
+    .select-all-mobile { display: flex; }
+
+    .table-wrap { border: none; overflow-x: visible; }
+    table { min-width: 0; width: 100%; }
+    thead { display: none; }
+
+    tbody tr {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      column-gap: 10px;
+      row-gap: 3px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 10px;
+      padding: 10px 12px;
+      background: var(--surface) !important;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    }
+    tbody tr[data-verdict="confirm"] { border-left: 4px solid var(--confirm-fg); }
+    tbody tr[data-verdict="disagree"] { border-left: 4px solid var(--disagree-fg); }
+    tbody tr[data-verdict="no_detection"] { border-left: 4px solid var(--nodet-fg); }
+    tbody tr[data-verdict="not_run"] { border-left: 4px solid var(--border); }
+
+    table td {
+      border-bottom: none;
+      padding: 3px 0 !important;
+      white-space: normal;
+      position: static !important;
+      background: transparent !important;
+      box-shadow: none !important;
+      width: auto !important;
+      min-width: 0 !important;
+      max-width: none !important;
+      left: auto !important;
+    }
+
+    /* card header: checkbox, verdict pill, species, play button */
+    td:nth-child(1) { order: 1; }
+    td:nth-child(2) { order: 2; }
+    td:nth-child(3) { order: 3; flex: 1 1 140px; }
+    td:nth-child(11) { order: 4; }
+    td:nth-child(1) input[type=checkbox] { width: 20px; height: 20px; }
+
+    /* detail lines, each on its own row */
+    td:nth-child(4), td:nth-child(5), td:nth-child(6), td:nth-child(7),
+    td:nth-child(8), td:nth-child(9), td:nth-child(10) {
+      flex-basis: 100%;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    td:nth-child(4) { order: 5; }
+    td:nth-child(5) { order: 6; }
+    td:nth-child(6) { order: 7; }
+    td:nth-child(7) { order: 8; }
+    td:nth-child(8) { order: 9; }
+    td:nth-child(9) { order: 10; }
+    td:nth-child(10) { order: 11; }
+
+    td[data-label]::before {
+      content: attr(data-label) ": ";
+      font-weight: 600;
+      color: var(--fg);
+    }
+    td:nth-child(1)::before, td:nth-child(2)::before,
+    td:nth-child(3)::before, td:nth-child(11)::before {
+      content: none;
+    }
+
+    #player-bar {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 84px;
+      z-index: 15;
+      margin: 0;
+      border-left: none;
+      border-right: none;
+      border-radius: 0;
+      flex-wrap: wrap;
+    }
+    #player-label { flex-basis: 100%; }
+    #player-bar audio { flex-basis: 100%; }
+    #player-accept-btn, #player-false-positive-btn { display: none; }
+  }
+</style>
+
+<h1>BirdNET-Go Validation Candidates</h1>
+<div class="subtitle" id="subtitle">Loading…</div>
+
+<div class="toolbar toolbar-controls">
+  <button id="menu-btn" class="icon-btn" type="button" title="Menu" aria-label="Menu">☰</button>
+  <select id="day"></select>
+  <button id="search-btn" class="icon-btn" type="button" title="Search &amp; filter" aria-label="Search &amp; filter">🔍</button>
+  <button id="refresh-btn">↻ Refresh</button>
+  <span id="run-status"></span>
+
+  <div id="menu-panel" class="dropdown-panel">
+    <label class="force-check"><input type="checkbox" id="all-days"> show all days</label>
+    <button id="run-btn">Run birda ▶</button>
+    <label class="force-check"><input type="checkbox" id="force"> re-run cached</label>
+    <label class="force-check">rarity min 1&ndash;max <input type="number" id="rare-max" value="5" min="1" step="1" class="param"></label>
+    <label class="force-check">confirm ≥ <input type="number" id="confirm-threshold" value="0.8" min="0" max="1" step="0.01" class="param"></label>
+    <label class="compact"><input type="checkbox" id="compact"> Compact view</label>
+  </div>
+</div>
+
+<div class="toolbar toolbar-filters">
+  <div id="search-panel" class="dropdown-panel">
+    <input type="text" id="search" placeholder="Search species or ID…">
+    <div class="tabs-row">
+      <div class="tab active" data-filter="all">All <span class="count" id="count-all"></span></div>
+      <div class="tab" data-filter="confirm">Confirm <span class="count" id="count-confirm"></span></div>
+      <div class="tab" data-filter="disagree">Disagree <span class="count" id="count-disagree"></span></div>
+      <div class="tab" data-filter="no_detection">No detection <span class="count" id="count-no_detection"></span></div>
+      <div class="tab" data-filter="not_run">Not run <span class="count" id="count-not_run"></span></div>
+    </div>
+  </div>
+</div>
+
+<div class="toolbar toolbar-actions">
+  <div class="toolbar-actions-info">
+    <label class="compact select-all-mobile"><input type="checkbox" id="select-all-mobile" title="Select all visible rows"> Select all</label>
+    <span id="selection-count">No detections selected</span>
+    <span id="review-status" class="sub"></span>
+  </div>
+  <div class="toolbar-actions-buttons">
+    <button id="accept-btn" class="bulk-action btn-accept" disabled>✓ Accept</button>
+    <button id="false-positive-btn" class="bulk-action btn-reject" disabled>✕ False positive</button>
+  </div>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th><input type="checkbox" id="select-all" title="Select all visible rows"></th>
+        <th data-sort="overall_verdict">Overall</th>
+        <th data-sort="species">Species</th>
+        <th data-sort="detection_id">ID</th>
+        <th data-sort="detected_at_local">Date/time</th>
+        <th data-sort="model">Orig. model</th>
+        <th data-sort="confidence">Orig. conf.</th>
+        <th data-sort="bn_verdict">BirdNET (2nd)</th>
+        <th data-sort="pc_verdict">Perch (2nd)</th>
+        <th data-sort="note_posted" title="Whether a birda-verification comment has been posted to BirdNET-Go">Noted</th>
+        <th>Play</th>
+      </tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+</div>
+
+<div id="player-bar">
+  <span id="player-label" class="sub"></span>
+  <audio id="audio" controls></audio>
+  <button id="player-accept-btn" class="bulk-action btn-accept" disabled>✓ Accept</button>
+  <button id="player-false-positive-btn" class="bulk-action btn-reject" disabled>✕ False positive</button>
+  <button id="player-close-btn" class="player-close" title="Close player">✕</button>
+</div>
+
+<div id="confirm-overlay">
+  <div id="confirm-box">
+    <p id="confirm-message"></p>
+    <div class="confirm-actions">
+      <button id="confirm-cancel" class="bulk-action">Cancel</button>
+      <button id="confirm-ok" class="bulk-action btn-accept">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let allData = [];
+let sortKey = "species";
+let sortDir = 1;
+let activeFilter = "all";
+let selectedIds = new Set();
+let lastVisibleRows = [];
+let birdnetgoWebUrl = "";
+
+const PILL_LETTER = { confirm: "C", disagree: "D", no_detection: "N", not_run: "–" };
+const PILL_TITLE = { confirm: "Confirm", disagree: "Disagree", no_detection: "No detection", not_run: "Not run" };
+
+function pill(verdict) {
+  const letter = PILL_LETTER[verdict] || "?";
+  const title = PILL_TITLE[verdict] || verdict;
+  return `<span class="pill ${verdict}" title="${title}">${letter}</span>`;
+}
+
+function model2Cell(v, label) {
+  const detail = v.top_species
+    ? `<span class="model2-sci">${v.top_species}</span><span class="model2-common">${v.top_common_name || ""}</span>`
+    : "";
+  return `<td class="model2-cell" data-label="${label}">${pill(v.verdict)} <span class="sub">${fmtConf(v.top_confidence)}</span>${detail}</td>`;
+}
+
+function fmtConf(c) {
+  return c === null || c === undefined ? "—" : c.toFixed(2);
+}
+
+function getConfirmThreshold() {
+  const v = parseFloat(document.getElementById("confirm-threshold").value);
+  return Number.isFinite(v) ? v : 0.8;
+}
+
+function getRarityParams() {
+  const max = document.getElementById("rare-max").value;
+  return new URLSearchParams({ rare_min: 1, rare_max: max });
+}
+
+function recomputeModelVerdict(v, originalSpecies, threshold) {
+  if (v.verdict === "not_run") return v;
+  let verdict;
+  if (v.top_species === null) verdict = "no_detection";
+  else if (v.top_species === originalSpecies && v.top_confidence >= threshold) verdict = "confirm";
+  else verdict = "disagree";
+  return { ...v, verdict };
+}
+
+function withThreshold(r, threshold) {
+  const bn = recomputeModelVerdict(r.verify_birdnet_v24, r.species, threshold);
+  const pc = recomputeModelVerdict(r.verify_perch_v2, r.species, threshold);
+  const bothRan = bn.verdict !== "not_run" && pc.verdict !== "not_run";
+  const modelsDisagree = bothRan && bn.top_species && pc.top_species && bn.top_species !== pc.top_species;
+  let overall;
+  if (bn.verdict === "not_run") overall = "not_run";
+  else if (modelsDisagree) overall = "disagree";
+  else if (bn.verdict === "confirm" || pc.verdict === "confirm") overall = "confirm";
+  else if (bn.verdict === "no_detection" && pc.verdict === "no_detection") overall = "no_detection";
+  else overall = "disagree";
+  return { ...r, verify_birdnet_v24: bn, verify_perch_v2: pc, overall_verdict: overall };
+}
+
+function enforceDayScope() {
+  if (document.getElementById("all-days").checked) return;
+  const selectedDay = document.getElementById("day").value;
+  selectedIds.forEach(id => {
+    const rec = allData.find(r => r.detection_id === id);
+    if (!rec || !rec.detected_at_local.startsWith(selectedDay)) selectedIds.delete(id);
+  });
+}
+
+function scopedData() {
+  const q = document.getElementById("search").value.trim().toLowerCase();
+  const showAllDays = document.getElementById("all-days").checked;
+  const selectedDay = document.getElementById("day").value;
+  const threshold = getConfirmThreshold();
+  return allData.filter(r => {
+    if (!showAllDays && selectedDay && !r.detected_at_local.startsWith(selectedDay)) return false;
+    if (!q) return true;
+    return r.species.toLowerCase().includes(q) || r.common_name.toLowerCase().includes(q) || String(r.detection_id).includes(q);
+  }).map(r => withThreshold(r, threshold));
+}
+
+function render() {
+  const scoped = scopedData();
+  updateCounts(scoped);
+  let rows = scoped.filter(r => activeFilter === "all" || r.overall_verdict === activeFilter);
+
+  rows.sort((a, b) => {
+    let va, vb;
+    if (sortKey === "species") { va = a.common_name; vb = b.common_name; }
+    else if (sortKey === "bn_verdict") { va = a.verify_birdnet_v24.verdict; vb = b.verify_birdnet_v24.verdict; }
+    else if (sortKey === "pc_verdict") { va = a.verify_perch_v2.verdict; vb = b.verify_perch_v2.verdict; }
+    else if (sortKey === "model") { va = a.model; vb = b.model; }
+    else if (sortKey === "confidence") { va = a.confidence; vb = b.confidence; }
+    else { va = a[sortKey]; vb = b[sortKey]; }
+    if (va < vb) return -1 * sortDir;
+    if (va > vb) return 1 * sortDir;
+    return 0;
+  });
+
+  const tbody = document.getElementById("rows");
+  tbody.innerHTML = rows.map(r => {
+    const bn = r.verify_birdnet_v24, pc = r.verify_perch_v2;
+    const clipAttr = r.clip_name ? `data-clip="${r.clip_name}" data-label="${r.common_name} #${r.detection_id}" data-id="${r.detection_id}"` : "";
+    const sciLine = r.common_name !== r.species ? `<span class="species-sci">${r.species}</span>` : "";
+    const reviewUrl = `${birdnetgoWebUrl}/ui/detections/${r.detection_id}?tab=review`;
+    return `<tr class="${r.clip_exists ? "" : "no-clip"}" data-verdict="${r.overall_verdict}">
+      <td data-label="Select"><input type="checkbox" class="row-select" data-id="${r.detection_id}" ${selectedIds.has(r.detection_id) ? "checked" : ""}></td>
+      <td data-label="Overall">${pill(r.overall_verdict)}</td>
+      <td class="species-cell" data-label="Species"><a class="species-link" href="${reviewUrl}" target="_blank" rel="noopener"><span class="species-common">${r.common_name}</span>${sciLine}</a></td>
+      <td data-label="ID" class="mono">${r.detection_id}</td>
+      <td data-label="Date/time" class="mono">${r.detected_at_local.slice(0, 16).replace("T", " ")}</td>
+      <td data-label="Orig. model">${r.model}</td>
+      <td data-label="Orig. conf." class="mono">${fmtConf(r.confidence)}</td>
+      ${model2Cell(bn, "BirdNET (2nd)")}
+      ${model2Cell(pc, "Perch (2nd)")}
+      <td data-label="Noted" title="${r.note_posted ? "birda result posted to BirdNET-Go" : "no comment posted yet"}">${r.note_posted ? "📝" : "—"}</td>
+      <td data-label="Play">${r.clip_exists ? `<button class="play" ${clipAttr}>▶</button>` : "—"}</td>
+    </tr>`;
+  }).join("");
+
+  document.getElementById("subtitle").textContent =
+    `Showing ${rows.length} of ${scoped.length} candidates` +
+    (document.getElementById("all-days").checked ? " (all days)" : ` for ${document.getElementById("day").value}`);
+
+  lastVisibleRows = rows;
+  updateSelectionUI(rows);
+}
+
+function updateSelectionUI(visibleRows) {
+  const count = selectedIds.size;
+  document.getElementById("selection-count").textContent =
+    count === 0 ? "No detections selected" : `${count} selected`;
+  document.getElementById("accept-btn").disabled = count === 0;
+  document.getElementById("false-positive-btn").disabled = count === 0;
+  document.getElementById("player-accept-btn").disabled = count === 0;
+  document.getElementById("player-false-positive-btn").disabled = count === 0;
+
+  const selectAll = document.getElementById("select-all");
+  const selectAllMobile = document.getElementById("select-all-mobile");
+  if (visibleRows.length === 0) {
+    selectAll.checked = false;
+    selectAll.indeterminate = false;
+  } else {
+    const selectedVisible = visibleRows.filter(r => selectedIds.has(r.detection_id)).length;
+    selectAll.checked = selectedVisible === visibleRows.length;
+    selectAll.indeterminate = selectedVisible > 0 && selectedVisible < visibleRows.length;
+  }
+  selectAllMobile.checked = selectAll.checked;
+  selectAllMobile.indeterminate = selectAll.indeterminate;
+}
+
+function updateCounts(scoped) {
+  const counts = { all: scoped.length, confirm: 0, disagree: 0, no_detection: 0, not_run: 0 };
+  scoped.forEach(r => counts[r.overall_verdict] = (counts[r.overall_verdict] || 0) + 1);
+  for (const k of ["all", "confirm", "disagree", "no_detection", "not_run"]) {
+    document.getElementById(`count-${k}`).textContent = `(${counts[k] || 0})`;
+  }
+}
+
+function loadDays(selectDay) {
+  return fetch("/api/days?" + getRarityParams()).then(r => r.json()).then(days => {
+    const sel = document.getElementById("day");
+    const prev = selectDay || sel.value;
+    sel.innerHTML = days.map(d =>
+      `<option value="${d.day}">${d.day} — ${d.with_clip} candidate(s), ${d.verified} verified</option>`
+    ).join("");
+    if (prev && days.some(d => d.day === prev)) sel.value = prev;
+  });
+}
+
+function loadCandidates() {
+  return fetch("/api/candidates?" + getRarityParams()).then(r => r.json()).then(data => {
+    allData = data;
+    const stillPresent = new Set(data.map(r => r.detection_id));
+    selectedIds.forEach(id => { if (!stillPresent.has(id)) selectedIds.delete(id); });
+    render();
+  });
+}
+
+function loadConfig() {
+  return fetch("/api/config").then(r => r.json()).then(cfg => {
+    birdnetgoWebUrl = cfg.birdnetgo_web_url || "";
+  });
+}
+
+document.getElementById("run-btn").addEventListener("click", () => {
+  const day = document.getElementById("day").value;
+  const force = document.getElementById("force").checked;
+  if (!day) return;
+  const btn = document.getElementById("run-btn");
+  const status = document.getElementById("run-status");
+  btn.disabled = true;
+  status.textContent = `Running birda on ${day}…`;
+  fetch("/api/run", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      day, force,
+      confirm_threshold: getConfirmThreshold(),
+      rare_min: 1,
+      rare_max: document.getElementById("rare-max").value,
+    }),
+  })
+    .then(r => r.json())
+    .then(resp => {
+      if (resp.error) {
+        status.textContent = "Error: " + resp.error;
+        return;
+      }
+      status.textContent = `Done: ran ${resp.ran}, skipped ${resp.skipped_cached} already cached.`;
+      return Promise.all([loadCandidates(), loadDays(day)]);
+    })
+    .catch(err => { status.textContent = "Error: " + err; })
+    .finally(() => { btn.disabled = false; });
+});
+
+document.getElementById("refresh-btn").addEventListener("click", () => {
+  const btn = document.getElementById("refresh-btn");
+  const status = document.getElementById("run-status");
+  const selectedDay = document.getElementById("day").value;
+  btn.disabled = true;
+  status.textContent = "Refreshing…";
+  Promise.all([loadCandidates(), loadDays(selectedDay)])
+    .then(() => { status.textContent = "Refreshed."; })
+    .catch(err => { status.textContent = "Error: " + err; })
+    .finally(() => { btn.disabled = false; });
+});
+
+document.getElementById("rows").addEventListener("change", e => {
+  const cb = e.target.closest("input.row-select");
+  if (!cb) return;
+  const id = Number(cb.dataset.id);
+  if (cb.checked) selectedIds.add(id); else selectedIds.delete(id);
+  updateSelectionUI(lastVisibleRows);
+});
+
+document.getElementById("select-all").addEventListener("change", e => {
+  if (e.target.checked) lastVisibleRows.forEach(r => selectedIds.add(r.detection_id));
+  else lastVisibleRows.forEach(r => selectedIds.delete(r.detection_id));
+  render();
+});
+
+document.getElementById("select-all-mobile").addEventListener("change", e => {
+  if (e.target.checked) lastVisibleRows.forEach(r => selectedIds.add(r.detection_id));
+  else lastVisibleRows.forEach(r => selectedIds.delete(r.detection_id));
+  render();
+});
+
+function customConfirm(message) {
+  return new Promise(resolve => {
+    const overlay = document.getElementById("confirm-overlay");
+    const okBtn = document.getElementById("confirm-ok");
+    const cancelBtn = document.getElementById("confirm-cancel");
+    document.getElementById("confirm-message").textContent = message;
+    overlay.classList.add("active");
+    function cleanup(result) {
+      overlay.classList.remove("active");
+      okBtn.removeEventListener("click", onOk);
+      cancelBtn.removeEventListener("click", onCancel);
+      overlay.removeEventListener("click", onBackdrop);
+      resolve(result);
+    }
+    function onOk() { cleanup(true); }
+    function onCancel() { cleanup(false); }
+    function onBackdrop(e) { if (e.target === overlay) cleanup(false); }
+    okBtn.addEventListener("click", onOk);
+    cancelBtn.addEventListener("click", onCancel);
+    overlay.addEventListener("click", onBackdrop);
+  });
+}
+
+function selectedSummary(ids) {
+  const MAX = 8;
+  const names = ids.map(id => {
+    const rec = allData.find(r => r.detection_id === id);
+    return rec ? `${rec.common_name} #${id}` : `#${id}`;
+  });
+  if (names.length <= MAX) return names.join("\n");
+  return names.slice(0, MAX).join("\n") + `\n+${names.length - MAX} more`;
+}
+
+async function submitReview(verified, label) {
+  const ids = Array.from(selectedIds);
+  if (ids.length === 0) return;
+  const message = `Mark ${ids.length} detection(s) as ${label} in BirdNET-Go?\n\n${selectedSummary(ids)}`;
+  const confirmed = await customConfirm(message);
+  if (!confirmed) return;
+  const status = document.getElementById("review-status");
+  document.getElementById("accept-btn").disabled = true;
+  document.getElementById("false-positive-btn").disabled = true;
+  document.getElementById("player-accept-btn").disabled = true;
+  document.getElementById("player-false-positive-btn").disabled = true;
+  status.textContent = "Saving…";
+  fetch("/api/review", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ detection_ids: ids, verified }),
+  })
+    .then(r => r.json())
+    .then(resp => {
+      if (resp.error) {
+        status.textContent = "Error: " + resp.error;
+        return;
+      }
+      status.textContent = `Marked ${resp.count} as ${label}.`;
+      selectedIds.clear();
+      closePlayer();
+      return Promise.all([loadCandidates(), loadDays()]);
+    })
+    .catch(err => { status.textContent = "Error: " + err; })
+    .finally(() => updateSelectionUI(lastVisibleRows));
+}
+
+document.getElementById("accept-btn").addEventListener("click", () => submitReview("correct", "Correct"));
+document.getElementById("false-positive-btn").addEventListener("click", () => submitReview("false_positive", "False Positive"));
+
+function toggleDropdown(panel, others) {
+  const willOpen = !panel.classList.contains("open");
+  others.forEach(p => p.classList.remove("open"));
+  panel.classList.toggle("open", willOpen);
+}
+
+document.getElementById("menu-btn").addEventListener("click", () => {
+  toggleDropdown(document.getElementById("menu-panel"), [document.getElementById("search-panel")]);
+});
+document.getElementById("search-btn").addEventListener("click", () => {
+  toggleDropdown(document.getElementById("search-panel"), [document.getElementById("menu-panel")]);
+});
+
+document.getElementById("search").addEventListener("input", render);
+document.getElementById("day").addEventListener("change", () => {
+  enforceDayScope();
+  render();
+});
+document.getElementById("all-days").addEventListener("change", () => {
+  enforceDayScope();
+  render();
+});
+document.getElementById("confirm-threshold").addEventListener("input", render);
+document.getElementById("rare-max").addEventListener("change", () => Promise.all([loadCandidates(), loadDays()]));
+document.getElementById("compact").addEventListener("change", e => {
+  document.querySelector("table").classList.toggle("compact", e.target.checked);
+});
+document.querySelectorAll(".tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
+    activeFilter = tab.dataset.filter;
+    render();
+  });
+});
+document.querySelectorAll("th[data-sort]").forEach(th => {
+  th.addEventListener("click", () => {
+    const key = th.dataset.sort;
+    if (sortKey === key) sortDir *= -1; else { sortKey = key; sortDir = 1; }
+    render();
+  });
+});
+function closePlayer() {
+  const audio = document.getElementById("audio");
+  audio.pause();
+  audio.removeAttribute("src");
+  audio.load();
+  document.getElementById("player-bar").classList.remove("active");
+  document.querySelectorAll("button.play").forEach(b => b.classList.remove("playing"));
+}
+
+document.getElementById("rows").addEventListener("click", e => {
+  const btn = e.target.closest("button.play");
+  if (!btn) return;
+  document.querySelectorAll("button.play").forEach(b => b.classList.remove("playing"));
+  btn.classList.add("playing");
+  const audio = document.getElementById("audio");
+  audio.src = "/audio/" + btn.dataset.clip;
+  document.getElementById("player-label").textContent = btn.dataset.label;
+  document.getElementById("player-bar").classList.add("active");
+  audio.play();
+
+  const id = Number(btn.dataset.id);
+  selectedIds.clear();
+  selectedIds.add(id);
+  document.querySelectorAll("input.row-select").forEach(cb => {
+    cb.checked = Number(cb.dataset.id) === id;
+  });
+  updateSelectionUI(lastVisibleRows);
+});
+
+document.getElementById("player-accept-btn").addEventListener("click", () => submitReview("correct", "Correct"));
+document.getElementById("player-false-positive-btn").addEventListener("click", () => submitReview("false_positive", "False Positive"));
+document.getElementById("player-close-btn").addEventListener("click", closePlayer);
+
+document.addEventListener("click", e => {
+  const bar = document.getElementById("player-bar");
+  if (!bar.classList.contains("active")) return;
+  if (bar.contains(e.target)) return;
+  if (e.target.closest("button.play")) return;
+  closePlayer();
+});
+
+Promise.all([loadCandidates(), loadDays(), loadConfig()])
+  .then(() => render())
+  .catch(err => {
+    document.getElementById("subtitle").textContent = "Failed to load: " + err;
+  });
+</script>

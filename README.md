@@ -1,0 +1,104 @@
+# BirdNET-Go Validation Webapp
+
+A small companion webapp for [BirdNET-Go](https://github.com/tphakala/birdnet-go)
+that flags recent detections worth a second opinion, re-classifies their
+audio clips with an independent tool ([birda](https://github.com/tphakala/birda)),
+and lets you review/accept/reject them from your phone — writing the
+result straight back into BirdNET-Go via its own web API.
+
+It does **not** replace BirdNET-Go's own review UI — it's a triage layer
+on top of it, focused on the last ~7 days of detections.
+
+## How it decides what to show you
+
+A detection is a "candidate" if its species had **1–5 total detections on
+that local calendar day** (daily rarity) — the idea being that a species
+your setup rarely hears is more likely to be a misidentification than one
+it hears constantly. See `candidate_finder.py` for the full query.
+
+Each candidate's clip is then re-classified by two independent birda
+models (`birdnet-v24` and `perch-v2`). The overall verdict is:
+
+- **confirm** — at least one of the two models agrees with BirdNET-Go's
+  original call, above the confidence threshold, *and the two models don't
+  contradict each other*.
+- **disagree** — the models named different species from each other, or
+  neither confirms the original call.
+- **no_detection** — neither model detected anything in the clip.
+- **not_run** — birda hasn't verified this clip yet.
+
+## Requirements
+
+- Python 3.9+ (stdlib only — no pip install needed for this repo itself)
+- A running BirdNET-Go instance with clip export enabled, reachable over
+  HTTP
+- [birda](https://github.com/tphakala/birda) installed — download a release
+  build for your platform, then:
+  ```
+  birda models install birdnet-v24
+  birda models install perch-v2
+  ```
+
+## Setup
+
+1. Clone this repo next to (or anywhere relative to) your BirdNET-Go data.
+2. Copy `.env.example` to `.env` and fill in the values for your setup —
+   at minimum you'll usually need `BIRDNETGO_DATA_DIR` (if it's not at
+   `~/birdnet-go-app/data`) and `BIRDNETGO_WEB_URL` (if `localhost` won't
+   resolve from your phone/laptop). See `config.py` for every available
+   variable and its default.
+3. Run it:
+   ```
+   python3 webapp/server.py
+   ```
+   or install it as a systemd service (see below) so it survives reboots.
+4. Open `http://<this-machine's-LAN-IP>:8091` (or whatever `WEBAPP_PORT`
+   you set) from your phone or laptop.
+
+### Running as a systemd service (optional)
+
+```ini
+# /etc/systemd/system/birdnet-validator.service
+[Unit]
+Description=BirdNET-Go Validation Webapp
+After=network.target
+
+[Service]
+Type=simple
+User=youruser
+WorkingDirectory=/path/to/birdnetgovalidator/webapp
+ExecStart=/usr/bin/python3 /path/to/birdnetgovalidator/webapp/server.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Then `sudo systemctl enable --now birdnet-validator`.
+
+## Files
+
+| File | Purpose |
+|---|---|
+| `config.py` | All configuration, env-var overridable (see `.env.example`) |
+| `candidate_finder.py` | Picks which recent detections need review (reads BirdNET-Go's DB read-only) |
+| `verifier.py` | Runs birda against candidate clips, computes verdicts |
+| `birdnetgo_client.py` | All writes back to BirdNET-Go — goes through its own HTTP API, never the DB directly |
+| `webapp/server.py` | Stdlib HTTP server: serves the UI, candidate/day APIs, audio streaming, review actions |
+| `webapp/index.html` | The UI itself — single file, no build step, no framework |
+| `find_candidates.py` | CLI wrapper for manual/scripted candidate inspection |
+| `verify_candidates.py` | CLI wrapper for manual/scripted verification runs |
+
+## Notes
+
+- Everything the webapp writes to BirdNET-Go (accept/reject, verification
+  comments) goes through BirdNET-Go's own `/api/v2/...` endpoints — the
+  same ones its GUI uses. Nothing here writes to BirdNET-Go's SQLite DB
+  directly; all DB access is read-only.
+- The candidate list is always computed live from the DB on each request —
+  never cached to a static file — since new detections stream in
+  continuously.
+- `birda`'s `-o` output naming isn't model-specific (a known upstream
+  quirk), so `verifier.py` always uses a separate output directory per
+  model to avoid one run's results silently overwriting another's.

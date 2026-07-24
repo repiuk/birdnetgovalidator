@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+
+.env
+
+# Generated/runtime data — regenerated from BirdNET-Go's DB, not source.
+verification_cache.json
+verification_results.json
+candidates_last7d.json
+birda_results/
