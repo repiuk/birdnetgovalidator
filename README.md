@@ -16,16 +16,29 @@ that local calendar day** (daily rarity) — the idea being that a species
 your setup rarely hears is more likely to be a misidentification than one
 it hears constantly. See `candidate_finder.py` for the full query.
 
-Each candidate's clip is then re-classified by two independent birda
-models (`birdnet-v24` and `perch-v2`). The overall verdict is:
+Species you never want to see, no matter how rare that day, can be
+permanently skipped — copy `excluded_species.example.txt` to
+`excluded_species.txt` (gitignored, personal to your setup) and list them
+by Dutch common name, one per line. See that file for the exact format.
 
-- **confirm** — at least one of the two models agrees with BirdNET-Go's
-  original call, above the confidence threshold, *and the two models don't
-  contradict each other*.
-- **disagree** — the models named different species from each other, or
-  neither confirms the original call.
-- **no_detection** — neither model detected anything in the clip.
+Each candidate's clip is then re-classified by two independent birda
+models (`birdnet-v24` and `perch-v2`), each scored per-model as **confirm**
+(matches BirdNET-Go's original species, above the confidence threshold),
+**weak_match** (same species, below the threshold), **disagree** (a
+different species), or **no_detection**. The two are combined into an
+overall verdict:
+
+- **auto_confirm (CC)** — both models confirm. Safe to auto-accept.
+- **auto_reject (DD)** — the models disagree with each other, or one found
+  nothing while the other didn't cleanly confirm. Safe to auto-reject.
+- **manual_review (MD)** — both models agree on the species, but at least
+  one is below the confidence threshold — a real judgment call, worth a
+  listen (use the 🔊 xeno-canto button).
+- **no_detection (NN)** — neither model detected anything in the clip.
 - **not_run** — birda hasn't verified this clip yet.
+
+The webapp's ⚡ Auto button (bulk, or per-row) writes CC/DD verdicts back to
+BirdNET-Go in one action; MD/NN are left for manual Accept/False positive.
 
 Next to each model's guess, the 🔊 button fetches a few reference
 recordings of that species from [xeno-canto](https://xeno-canto.org) (via
@@ -90,6 +103,7 @@ Then `sudo systemctl enable --now birdnet-validator`.
 |---|---|
 | `config.py` | All configuration, env-var overridable (see `.env.example`) |
 | `candidate_finder.py` | Picks which recent detections need review (reads BirdNET-Go's DB read-only) |
+| `excluded_species.example.txt` | Template for `excluded_species.txt`, species to always skip |
 | `verifier.py` | Runs birda against candidate clips, computes verdicts |
 | `birdnetgo_client.py` | All writes back to BirdNET-Go — goes through its own HTTP API, never the DB directly |
 | `webapp/server.py` | Stdlib HTTP server: serves the UI, candidate/day APIs, audio streaming, review actions |

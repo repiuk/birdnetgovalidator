@@ -31,6 +31,8 @@ import config
 
 DB_PATH = config.DB_PATH
 CLIPS_BASE = str(config.CLIPS_DIR)
+LABELS_NL_PATH = config.BIRDA_LABELS_NL_PATH
+EXCLUDED_SPECIES_PATH = config.EXCLUDED_SPECIES_PATH
 LOCAL_TZ = ZoneInfo("Europe/Amsterdam")
 
 MODEL_NAMES = {1: "BirdNET", 2: "Perch", 3: "BattyBirdNET"}
@@ -38,6 +40,34 @@ MODEL_NAMES = {1: "BirdNET", 2: "Perch", 3: "BattyBirdNET"}
 
 def connect_ro():
     return sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
+
+
+def load_excluded_species():
+    """Scientific names to always skip, from a user-maintained list (one per
+    line, blank lines and '#' comments ignored). Each line is looked up as a
+    Dutch common name via the same birda label file the webapp uses for
+    display; if it doesn't match anything there, it's used as-is as a
+    literal scientific name instead. That fallback matters because
+    BirdNET-Go's own models can disagree on taxonomy for the same species
+    (e.g. jackdaw is 'Corvus monedula' from BirdNET but 'Coloeus monedula'
+    from Perch) -- listing both forms catches every variant."""
+    if not EXCLUDED_SPECIES_PATH.is_file():
+        return set()
+
+    common_to_sci = {}
+    if LABELS_NL_PATH.is_file():
+        for line in LABELS_NL_PATH.read_text().splitlines():
+            if "_" in line:
+                sci, common = line.split("_", 1)
+                common_to_sci[common.strip().lower()] = sci
+
+    excluded = set()
+    for line in EXCLUDED_SPECIES_PATH.read_text().splitlines():
+        name = line.split("#", 1)[0].strip()
+        if not name:
+            continue
+        excluded.add(common_to_sci.get(name.lower(), name))
+    return excluded
 
 
 def fetch_window(con, days):
@@ -131,6 +161,10 @@ def row_to_candidate(r, reasons, extra=None):
 def get_candidates(days=7, rare_min=1, rare_max=5):
     con = connect_ro()
     rows = fetch_window(con, days)
+
+    excluded = load_excluded_species()
+    if excluded:
+        rows = [r for r in rows if r[6] not in excluded]
 
     rarities = find_daily_rarities(rows, rare_min, rare_max)
 

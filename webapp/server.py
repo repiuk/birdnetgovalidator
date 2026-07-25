@@ -34,6 +34,7 @@ PORT = config.WEBAPP_PORT
 RANGE_RE = re.compile(r"bytes=(\d*)-(\d*)")
 
 NOT_RUN = {"verdict": "not_run", "top_species": None, "top_confidence": None}
+NO_LOUDNESS = {"mean_db": None, "max_db": None}
 
 # Dutch common names, matching BirdNET-Go's own GUI locale (config.yaml locale: nl).
 # Bundled with the birda birdnet-v24 model install; covers birds only, so
@@ -89,10 +90,16 @@ def merge(candidates, cache):
             rec["verify_birdnet_v24"] = with_top_common_name(cached["verify_birdnet_v24"])
             rec["verify_perch_v2"] = with_top_common_name(cached["verify_perch_v2"])
             rec["overall_verdict"] = cached["overall_verdict"]
+            rec["loudness"] = cached.get("loudness", NO_LOUDNESS)
+            rec["quiet"] = cached.get("quiet", False)
+            rec["loud"] = cached.get("loud", False)
         else:
             rec["verify_birdnet_v24"] = NOT_RUN
             rec["verify_perch_v2"] = NOT_RUN
             rec["overall_verdict"] = "not_run"
+            rec["loudness"] = NO_LOUDNESS
+            rec["quiet"] = False
+            rec["loud"] = False
         rec["note_posted"] = c["detection_id"] in marked_ids
         out.append(rec)
     return out

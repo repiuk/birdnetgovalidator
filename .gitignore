@@ -2,6 +2,7 @@ __pycache__/
 *.pyc
 
 .env
+excluded_species.txt
 
 # Generated/runtime data — regenerated from BirdNET-Go's DB, not source.
 verification_cache.json

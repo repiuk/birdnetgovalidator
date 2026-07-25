@@ -1,0 +1,35 @@
+# Species to never surface as a review candidate, even if they'd otherwise
+# qualify as a daily rarity. One Dutch common name per line, matching the
+# names BirdNET-Go's own UI shows you (from birda's birdnet-v24-nl label
+# file).
+#
+# Copy this file to excluded_species.txt (gitignored, personal to your
+# setup) and edit it. Every line below is commented out by default --
+# uncomment (remove the leading "# ") any species you want to actually
+# exclude. Anything after a "#" (leading or inline) is a comment and
+# ignored, so the trailing notes are safe to leave in place.
+#
+# A name that isn't a recognized Dutch name is used as-is as a literal
+# scientific name instead. Useful because BirdNET-Go's own models can
+# disagree on taxonomy for the same species -- e.g. jackdaw is logged as
+# "Corvus monedula" by BirdNET but "Coloeus monedula" by Perch. Uncommenting
+# both of the lines below would catch every variant:
+#
+# Kauw
+# Coloeus monedula
+
+# BirdNET-Go doesn't expose a species-frequency percentage anywhere, so
+# these are computed from your own detection history instead: the % of
+# days (2026-02-10 through 2026-07-25, 166 days total) each species was
+# detected at least once. Everything below was detected on >80% of days --
+# i.e. the birds your setup hears almost daily and probably don't need a
+# second opinion on:
+#
+# Koolmees    # Parus major, 100.0% of days
+# Groenling   # Chloris chloris, 99.4% of days
+# Pimpelmees  # Cyanistes caeruleus, 97.6% of days
+# Merel       # Turdus merula, 96.4% of days
+# Vink        # Fringilla coelebs, 95.2% of days
+# Roodborst   # Erithacus rubecula, 92.8% of days
+# Ekster      # Pica pica, 83.7% of days
+# Heggenmus   # Prunella modularis, 80.7% of days

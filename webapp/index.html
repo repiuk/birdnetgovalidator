@@ -1,6 +1,7 @@
 <title>BirdNET-Go Validation Candidates</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj4KPGNpcmNsZSBjeD0iMzQiIGN5PSI2NCIgcj0iMzIiIGZpbGw9IiMwMDAwMDAiLz4KPGNpcmNsZSBjeD0iNjMiIGN5PSIzNSIgcj0iMzciIGZpbGw9IiMwMDAwMDAiLz4KPHBhdGggZD0iTTIxIDUyIEw0NyA3OCBNNDcgNTIgTDIxIDc4IiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS13aWR0aD0iOSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+CjxwYXRoIGQ9Ik00OSAzNyBMNjAgNDggTDg0IDIwIiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS13aWR0aD0iOSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBmaWxsPSJub25lIi8+Cjwvc3ZnPg==">
 <style>
   :root {
     --bg: #eef2f1;
@@ -159,6 +160,7 @@
   tbody tr[data-verdict="auto_reject"]:hover td:nth-child(2),
   tbody tr[data-verdict="auto_reject"]:hover td:nth-child(3) { background: var(--row-hover); }
   .auto-icon { margin-left: 3px; font-size: 0.75rem; vertical-align: middle; }
+  .loudness-badge { margin-left: 3px; font-size: 0.75rem; vertical-align: middle; opacity: 0.6; cursor: default; }
   button.auto-row-btn {
     border: none;
     background: transparent;
@@ -183,7 +185,7 @@
   }
   .pill.confirm, .pill.auto_confirm { background: var(--confirm-bg); color: var(--confirm-fg); }
   .pill.disagree, .pill.auto_reject { background: var(--disagree-bg); color: var(--disagree-fg); }
-  .pill.manual_review { background: var(--manual-bg); color: var(--manual-fg); }
+  .pill.manual_review, .pill.weak_match { background: var(--manual-bg); color: var(--manual-fg); }
   .pill.no_detection { background: var(--nodet-bg); color: var(--nodet-fg); }
   .pill.not_run { background: transparent; color: var(--muted); font-weight: 400; }
   .pill.pill-wide { width: auto; min-width: 24px; padding: 0 5px; border-radius: 9px; }
@@ -195,7 +197,7 @@
     color: var(--fg);
     font-size: 0.9rem;
   }
-  button#run-btn {
+  .btn-run {
     padding: 8px 16px;
     border: none;
     border-radius: 8px;
@@ -205,8 +207,8 @@
     cursor: pointer;
     font-weight: 600;
   }
-  button#run-btn:disabled { opacity: 0.6; cursor: default; }
-  button#run-btn.force { background: var(--disagree-fg); }
+  .btn-run:disabled { opacity: 0.6; cursor: default; }
+  .btn-run.force { background: var(--disagree-fg); }
   button#refresh-btn {
     padding: 8px 16px;
     border: none;
@@ -408,7 +410,6 @@
 
     .toolbar { gap: 8px; margin-bottom: 8px; }
     .toolbar-controls select#day { flex: 1; min-width: 0; }
-    .toolbar-controls button#refresh-btn { min-height: 40px; }
 
     button.icon-btn { display: flex; }
 
@@ -449,7 +450,9 @@
       font-size: 0.9rem;
       padding: 8px 10px;
     }
-    .select-all-mobile { display: flex; }
+    label.select-all-mobile, #selection-count { display: none; }
+    .toolbar-actions-info.has-selection label.select-all-mobile { display: flex; }
+    .toolbar-actions-info.has-selection #selection-count { display: inline; }
 
     .table-wrap { border: none; overflow-x: visible; }
     table { display: block; min-width: 0; width: 100%; }
@@ -575,11 +578,12 @@
   <button id="menu-btn" class="icon-btn" type="button" title="Menu" aria-label="Menu">☰</button>
   <select id="day"></select>
   <button id="refresh-btn">↻ Refresh</button>
+  <button id="run-btn-main" class="btn-run" title="Run birda for the selected day">▶ Birda</button>
   <span id="run-status"></span>
 
   <div id="menu-panel" class="dropdown-panel">
     <label class="force-check"><input type="checkbox" id="all-days"> show all days</label>
-    <button id="run-btn">Run birda ▶</button>
+    <button id="run-btn" class="btn-run">Run birda ▶</button>
     <label class="force-check"><input type="checkbox" id="force"> re-run cached</label>
     <label class="force-check">rarity min 1&ndash;max <input type="number" id="rare-max" value="5" min="1" step="1" class="param"></label>
     <label class="force-check">confirm ≥ <input type="number" id="confirm-threshold" value="0.8" min="0" max="1" step="0.01" class="param"></label>
@@ -602,7 +606,7 @@
 </div>
 
 <div class="toolbar toolbar-actions">
-  <div class="toolbar-actions-info">
+  <div class="toolbar-actions-info" id="toolbar-actions-info">
     <label class="compact select-all-mobile"><input type="checkbox" id="select-all-mobile" title="Select all visible rows"> Select all</label>
     <span id="selection-count">No detections selected</span>
     <span id="review-status" class="sub"></span>
@@ -610,7 +614,7 @@
   <div class="toolbar-actions-buttons">
     <button id="auto-btn" class="bulk-action btn-auto" disabled title="Write back all CC (auto-confirm) and DD (auto-reject) rows currently in the list">⚡ Auto</button>
     <button id="accept-btn" class="bulk-action btn-accept" disabled>✓ Accept</button>
-    <button id="false-positive-btn" class="bulk-action btn-reject" disabled>✕ False positive</button>
+    <button id="false-positive-btn" class="bulk-action btn-reject" disabled>✕ False</button>
   </div>
 </div>
 
@@ -638,7 +642,7 @@
   <span id="player-label" class="sub"></span>
   <audio id="audio" controls></audio>
   <button id="player-accept-btn" class="bulk-action btn-accept" disabled>✓ Accept</button>
-  <button id="player-false-positive-btn" class="bulk-action btn-reject" disabled>✕ False positive</button>
+  <button id="player-false-positive-btn" class="bulk-action btn-reject" disabled>✕ False</button>
   <button id="player-close-btn" class="player-close" title="Close player">✕</button>
 </div>
 
@@ -660,15 +664,16 @@ let activeFilter = "all";
 let selectedIds = new Set();
 let lastVisibleRows = [];
 let lastScopedRows = [];
+let playerLocked = false;
 let birdnetgoWebUrl = "";
 
-const PILL_LETTER = { confirm: "C", disagree: "D", no_detection: "N", not_run: "–" };
-const PILL_TITLE = { confirm: "Confirm", disagree: "Disagree", no_detection: "No detection", not_run: "Not run" };
+const PILL_LETTER = { confirm: "C", weak_match: "W", disagree: "D", no_detection: "N", not_run: "–" };
+const PILL_TITLE = { confirm: "Confirm", weak_match: "Weak match (same species, below confirm threshold)", disagree: "Disagree", no_detection: "No detection", not_run: "Not run" };
 const OVERALL_LETTER = { auto_confirm: "CC", auto_reject: "DD", manual_review: "MD", no_detection: "NN", not_run: "–" };
 const OVERALL_TITLE = {
   auto_confirm: "CC — both models confirm, auto-confirmable",
-  auto_reject: "DD — neither model confirms, auto-rejectable",
-  manual_review: "MD — models disagree with each other, needs manual review",
+  auto_reject: "DD — species mismatch or missing detection somewhere, auto-rejectable",
+  manual_review: "MD — models agree on the species but confidence is split, needs manual review",
   no_detection: "NN — neither model detected anything",
   not_run: "Not run",
 };
@@ -687,6 +692,14 @@ function overallPill(verdict, detectionId) {
     ? `<button type="button" class="auto-icon auto-row-btn" data-id="${detectionId}" data-verdict="${verdict}" title="Auto-apply this detection now">⚡</button>`
     : "";
   return `<span class="pill pill-wide ${verdict}" title="${title}">${letter}</span>${auto}`;
+}
+
+function loudnessBadge(r) {
+  if (!r.loudness || r.loudness.max_db === null || r.loudness.max_db === undefined) return "";
+  const db = r.loudness.max_db.toFixed(1) + " dB";
+  if (r.quiet) return `<span class="loudness-badge" title="Quiet clip: peak ${db} — probably not much to hear">🔇</span>`;
+  if (r.loud) return `<span class="loudness-badge" title="Loud clip: peak ${db}">📢</span>`;
+  return `<span class="loudness-badge" title="Normal volume: peak ${db}">🔊</span>`;
 }
 
 function escapeHtml(s) {
@@ -736,16 +749,21 @@ function getRarityParams() {
 function recomputeModelVerdict(v, originalSpecies, threshold) {
   if (v.verdict === "not_run") return v;
   let verdict;
+  const sameSpecies = v.top_species === originalSpecies;
   if (v.top_species === null) verdict = "no_detection";
-  else if (v.top_species === originalSpecies && v.top_confidence >= threshold) verdict = "confirm";
+  else if (sameSpecies && v.top_confidence >= threshold) verdict = "confirm";
+  else if (sameSpecies) verdict = "weak_match";
   else verdict = "disagree";
   return { ...v, verdict };
 }
 
+const MATCHING_VERDICTS = new Set(["confirm", "weak_match"]);
+
 function overallBucket(bnVerdict, pcVerdict) {
-  if (bnVerdict === "confirm" && pcVerdict === "confirm") return "auto_confirm";
+  if (MATCHING_VERDICTS.has(bnVerdict) && MATCHING_VERDICTS.has(pcVerdict)) {
+    return (bnVerdict === "confirm" && pcVerdict === "confirm") ? "auto_confirm" : "manual_review";
+  }
   if (bnVerdict === "no_detection" && pcVerdict === "no_detection") return "no_detection";
-  if (bnVerdict === "confirm" || pcVerdict === "confirm") return "manual_review";
   return "auto_reject";
 }
 
@@ -804,8 +822,8 @@ function render() {
     const sciLine = r.common_name !== r.species ? `<span class="species-sci">${r.species}</span>` : "";
     const reviewUrl = `${birdnetgoWebUrl}/ui/detections/${r.detection_id}?tab=review`;
     return `<tr class="${r.clip_exists ? "" : "no-clip"}${altClass}" data-verdict="${r.overall_verdict}">
-      <td data-label="Select"><input type="checkbox" class="row-select" data-id="${r.detection_id}" ${selectedIds.has(r.detection_id) ? "checked" : ""}></td>
-      <td data-label="Overall">${overallPill(r.overall_verdict, r.detection_id)}</td>
+      <td data-label="Select"><input type="checkbox" class="row-select" data-id="${r.detection_id}" ${selectedIds.has(r.detection_id) ? "checked" : ""} ${playerLocked ? "disabled" : ""}></td>
+      <td data-label="Overall">${overallPill(r.overall_verdict, r.detection_id)}${loudnessBadge(r)}</td>
       <td class="species-cell" data-label="Species"><a class="species-link" href="${reviewUrl}" target="_blank" rel="noopener"><span class="species-common">${r.common_name}</span>${sciLine}</a></td>
       <td data-label="ID" class="mono">${r.detection_id}</td>
       <td data-label="Date/time" class="mono">${fmtDateTime(r.detected_at_local.slice(0, 16).replace("T", " "))}</td>
@@ -840,6 +858,7 @@ function updateSelectionUI(visibleRows) {
   const count = selectedIds.size;
   document.getElementById("selection-count").textContent =
     count === 0 ? "No detections selected" : `${count} selected`;
+  document.getElementById("toolbar-actions-info").classList.toggle("has-selection", count > 0);
   document.getElementById("accept-btn").disabled = count === 0;
   document.getElementById("false-positive-btn").disabled = count === 0;
   document.getElementById("player-accept-btn").disabled = count === 0;
@@ -847,6 +866,8 @@ function updateSelectionUI(visibleRows) {
 
   const selectAll = document.getElementById("select-all");
   const selectAllMobile = document.getElementById("select-all-mobile");
+  selectAll.disabled = playerLocked;
+  selectAllMobile.disabled = playerLocked;
   if (visibleRows.length === 0) {
     selectAll.checked = false;
     selectAll.indeterminate = false;
@@ -895,13 +916,13 @@ function loadConfig() {
   });
 }
 
-document.getElementById("run-btn").addEventListener("click", () => {
+function runBirda() {
   const day = document.getElementById("day").value;
   const force = document.getElementById("force").checked;
   if (!day) return;
-  const btn = document.getElementById("run-btn");
+  const buttons = [document.getElementById("run-btn"), document.getElementById("run-btn-main")];
   const status = document.getElementById("run-status");
-  btn.disabled = true;
+  buttons.forEach(b => { b.disabled = true; });
   status.textContent = `Running birda on ${day}…`;
   fetch("/api/run", {
     method: "POST",
@@ -923,8 +944,11 @@ document.getElementById("run-btn").addEventListener("click", () => {
       return Promise.all([loadCandidates(), loadDays(day)]);
     })
     .catch(err => { status.textContent = "Error: " + err; })
-    .finally(() => { btn.disabled = false; });
-});
+    .finally(() => { buttons.forEach(b => { b.disabled = false; }); });
+}
+
+document.getElementById("run-btn").addEventListener("click", runBirda);
+document.getElementById("run-btn-main").addEventListener("click", runBirda);
 
 document.getElementById("refresh-btn").addEventListener("click", () => {
   const btn = document.getElementById("refresh-btn");
@@ -1135,6 +1159,9 @@ function closePlayer() {
   audio.load();
   document.getElementById("player-bar").classList.remove("active");
   document.querySelectorAll("button.play").forEach(b => b.classList.remove("playing"));
+  playerLocked = false;
+  document.querySelectorAll("input.row-select").forEach(cb => { cb.disabled = false; });
+  updateSelectionUI(lastVisibleRows);
 }
 
 document.getElementById("rows").addEventListener("click", e => {
@@ -1157,8 +1184,10 @@ document.getElementById("rows").addEventListener("click", e => {
   const id = Number(btn.dataset.id);
   selectedIds.clear();
   selectedIds.add(id);
+  playerLocked = true;
   document.querySelectorAll("input.row-select").forEach(cb => {
     cb.checked = Number(cb.dataset.id) === id;
+    cb.disabled = true;
   });
   updateSelectionUI(lastVisibleRows);
 });
