@@ -51,6 +51,11 @@ BIRDA_LABELS_NL_PATH = BIRDA_HOME / "models/birdnet-v24-nl.txt"
 
 WEBAPP_PORT = int(os.environ.get("WEBAPP_PORT", "8091"))
 
+# xeno-canto API v3 key, tied to a personal (or app) xeno-canto account —
+# see https://xeno-canto.org/explore/api. Optional: reference-recording
+# lookups are simply unavailable if unset.
+XENO_CANTO_API_KEY = os.environ.get("XENO_CANTO_API_KEY", "")
+
 # Generated/runtime data, always local to this checkout.
 RESULTS_DIR = REPO_DIR / "birda_results"
 CACHE_PATH = REPO_DIR / "verification_cache.json"

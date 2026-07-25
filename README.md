@@ -27,6 +27,13 @@ models (`birdnet-v24` and `perch-v2`). The overall verdict is:
 - **no_detection** — neither model detected anything in the clip.
 - **not_run** — birda hasn't verified this clip yet.
 
+Next to each model's guess, the 🔊 button fetches a few reference
+recordings of that species from [xeno-canto](https://xeno-canto.org) (via
+their API v3) so you can compare by ear. This needs `XENO_CANTO_API_KEY` set
+in `.env` — get one from your xeno-canto account page (requires a verified
+email) or register an app-specific key. Without it, the button just reports
+that no key is configured; everything else works fine.
+
 ## Requirements
 
 - Python 3.9+ (stdlib only — no pip install needed for this repo itself)

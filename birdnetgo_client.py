@@ -22,6 +22,12 @@ from candidate_finder import connect_ro
 BASE_URL = config.BIRDNETGO_API_URL
 MARKER = "[birda-validator]"
 
+VERDICT_LABEL = {
+    "confirm": "Confirm",
+    "disagree": "Disagree",
+    "no_detection": "No detection",
+}
+
 
 def _fmt_model(v):
     if v["top_species"] is None:
@@ -32,11 +38,12 @@ def _fmt_model(v):
 def build_comment(candidate, rec):
     bn = rec["verify_birdnet_v24"]
     pc = rec["verify_perch_v2"]
+    overall = VERDICT_LABEL.get(rec["overall_verdict"], rec["overall_verdict"])
     return (
-        f"{MARKER} overall: {rec['overall_verdict']}. "
-        f"birdnet-v24: {_fmt_model(bn)}. perch-v2: {_fmt_model(pc)}. "
-        f"Original BirdNET-Go call: {candidate['species']} "
-        f"({candidate['confidence']:.2f})."
+        f"{MARKER} {overall} | "
+        f"birdnet: {_fmt_model(bn)} | "
+        f"perch: {_fmt_model(pc)} | "
+        f"BirdNET-Go: {candidate['species']} ({candidate['confidence']:.2f})"
     )
 
 

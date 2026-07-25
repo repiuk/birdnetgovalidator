@@ -8,13 +8,16 @@ and audio clips with HTTP Range support for scrubbing.
 
 import json
 import mimetypes
+import random
 import re
 import subprocess
 import sys
+import urllib.error
+import urllib.request
 from collections import defaultdict
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import unquote, urlparse, parse_qs
+from urllib.parse import unquote, urlparse, parse_qs, urlencode
 
 WEBAPP_DIR = Path(__file__).parent
 PROJECT_DIR = WEBAPP_DIR.parent
@@ -99,6 +102,81 @@ def local_day(candidate):
     return candidate["detected_at_local"][:10]
 
 
+XENO_CANTO_CACHE = {}
+XENO_CANTO_QUALITY_ORDER = {"A": 0, "B": 1, "C": 2, "D": 3, "E": 4}
+XENO_CANTO_ACCEPTABLE_QUALITY = {"A", "B"}
+XENO_CANTO_POOL_SIZE = 15
+XENO_CANTO_SAMPLE_SIZE = 3
+
+
+def _https(url):
+    if url and url.startswith("//"):
+        return "https:" + url
+    return url
+
+
+def fetch_xenocanto_pool(species):
+    """The pool of quality A/B reference recordings for a scientific name,
+    via xeno-canto API v3. Cached in-memory per species (never expires
+    within a process lifetime — a species' available recordings barely
+    change day to day, and this avoids hammering the API for common species
+    that show up on many candidates). A random sample of this pool is what
+    actually gets shown per request — see fetch_xenocanto()."""
+    if species in XENO_CANTO_CACHE:
+        return XENO_CANTO_CACHE[species]
+    if not config.XENO_CANTO_API_KEY:
+        return {"error": "no XENO_CANTO_API_KEY configured"}
+
+    query = f'sp:"{species}" grp:birds'
+    params = urlencode({"query": query, "key": config.XENO_CANTO_API_KEY, "per_page": 50})
+    url = f"https://xeno-canto.org/api/3/recordings?{params}"
+
+    try:
+        with urllib.request.urlopen(url, timeout=10) as resp:
+            data = json.load(resp)
+    except (urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError) as e:
+        return {"error": str(e)}
+
+    if "error" in data:
+        return {"error": data["error"].get("message", str(data["error"]))}
+
+    recordings = [
+        r for r in data.get("recordings", [])
+        if r.get("file") and r.get("q") in XENO_CANTO_ACCEPTABLE_QUALITY
+    ]
+    recordings.sort(key=lambda r: XENO_CANTO_QUALITY_ORDER.get(r.get("q"), 5))
+
+    result = {
+        "recordings": [
+            {
+                "id": r["id"],
+                "url": _https(r["url"]),
+                "file": _https(r["file"]),
+                "recordist": r.get("rec", ""),
+                "license": _https(r.get("lic", "")),
+                "quality": r.get("q", ""),
+                "length": r.get("length", ""),
+                "country": r.get("cnt", ""),
+            }
+            for r in recordings[:XENO_CANTO_POOL_SIZE]
+        ]
+    }
+    XENO_CANTO_CACHE[species] = result
+    return result
+
+
+def fetch_xenocanto(species):
+    """A random sample of XENO_CANTO_SAMPLE_SIZE recordings from the cached
+    quality pool, so repeated clicks surface different recordings instead
+    of always the same top few."""
+    pool = fetch_xenocanto_pool(species)
+    if "error" in pool:
+        return pool
+    recordings = pool["recordings"]
+    sample = random.sample(recordings, min(XENO_CANTO_SAMPLE_SIZE, len(recordings)))
+    return {"recordings": sample}
+
+
 def days_summary(candidates, cache):
     by_day = defaultdict(lambda: {"total": 0, "verified": 0, "with_clip": 0})
     for c in candidates:
@@ -131,6 +209,8 @@ class Handler(BaseHTTPRequestHandler):
             self._serve_days(parse_qs(parsed.query))
         elif path == "/api/config":
             self._send_json({"birdnetgo_web_url": config.BIRDNETGO_WEB_URL})
+        elif path == "/api/xenocanto":
+            self._serve_xenocanto(parse_qs(parsed.query))
         elif path.startswith("/audio/"):
             self._serve_audio(unquote(path[len("/audio/"):]))
         else:
@@ -180,6 +260,13 @@ class Handler(BaseHTTPRequestHandler):
         candidates = load_candidates(rare_min, rare_max)
         cache = load_cache()
         self._send_json(days_summary(candidates, cache))
+
+    def _serve_xenocanto(self, qs):
+        species = qs.get("species", [""])[0]
+        if not species:
+            self._send_json({"error": "missing 'species'"}, status=400)
+            return
+        self._send_json(fetch_xenocanto(species))
 
     def _handle_run(self):
         length = int(self.headers.get("Content-Length", 0))

@@ -57,6 +57,7 @@
   }
   h1 { font-size: 1.3rem; margin: 0 0 4px 0; }
   .subtitle { color: var(--muted); font-size: 0.85rem; margin-bottom: 16px; }
+  .subtitle .nowrap { white-space: nowrap; }
   .toolbar {
     display: flex;
     gap: 10px;
@@ -85,6 +86,7 @@
     white-space: nowrap;
   }
   .tab.active { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+  .tab.active .count { color: var(--accent-fg); opacity: 0.75; }
   label.compact {
     display: flex;
     align-items: center;
@@ -116,7 +118,7 @@
     text-transform: uppercase;
     letter-spacing: 0.03em;
   }
-  tbody tr:nth-child(even) { background: var(--row-alt); }
+  tbody tr.row-alt { background: var(--row-alt); }
   tbody tr:hover { background: var(--row-hover); }
   .compact td, .compact th { padding: 4px 10px; }
   th:nth-child(1), td:nth-child(1),
@@ -130,7 +132,7 @@
   th:nth-child(3), td:nth-child(3) { left: 92px; box-shadow: 2px 0 4px -2px rgba(0, 0, 0, 0.25); }
   th:nth-child(1), th:nth-child(2), th:nth-child(3) { z-index: 3; }
   td:nth-child(1), td:nth-child(2), td:nth-child(3) { z-index: 1; }
-  tbody tr:nth-child(even) td:nth-child(1), tbody tr:nth-child(even) td:nth-child(2), tbody tr:nth-child(even) td:nth-child(3) { background: var(--row-alt); }
+  tbody tr.row-alt td:nth-child(1), tbody tr.row-alt td:nth-child(2), tbody tr.row-alt td:nth-child(3) { background: var(--row-alt); }
   tbody tr:hover td:nth-child(1), tbody tr:hover td:nth-child(2), tbody tr:hover td:nth-child(3) { background: var(--row-hover); }
   .pill {
     display: inline-flex;
@@ -147,6 +149,7 @@
   }
   .pill.confirm { background: var(--confirm-bg); color: var(--confirm-fg); }
   .pill.disagree { background: var(--disagree-bg); color: var(--disagree-fg); }
+  .pill.models_disagree { background: var(--disagree-bg); color: var(--disagree-fg); margin-left: 3px; }
   .pill.no_detection { background: var(--nodet-bg); color: var(--nodet-fg); }
   .pill.not_run { background: transparent; color: var(--muted); font-weight: 400; }
   select#day {
@@ -207,8 +210,9 @@
   label.force-check { display: flex; align-items: center; gap: 4px; font-size: 0.78rem; color: var(--muted); }
   #run-status { font-size: 0.8rem; color: var(--muted); }
   .species-cell { line-height: 1.3; }
-  .species-link { text-decoration: none; color: inherit; }
-  .species-link:hover .species-common { text-decoration: underline; color: var(--accent); }
+  .species-link { text-decoration: none; }
+  .species-link .species-common { color: var(--accent); text-decoration: underline; }
+  .species-link:hover .species-common { filter: brightness(1.15); }
   .species-common { display: block; }
   .species-sci { display: block; font-style: italic; color: var(--muted); font-size: 0.78rem; }
   .sub { color: var(--muted); font-size: 0.78rem; }
@@ -218,11 +222,58 @@
     font-size: 0.8rem;
   }
   .model2-cell { line-height: 1.3; }
-  .model2-sci { display: block; font-style: italic; color: var(--muted); font-size: 0.78rem; }
+  .model2-detail-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+  .model2-names { min-width: 0; }
+  .model2-sci-link { text-decoration: none; }
+  .model2-sci-link .model2-sci { color: var(--accent); text-decoration: underline; }
+  .model2-sci-link:hover .model2-sci { filter: brightness(1.15); }
+  .model2-sci { display: block; font-style: italic; font-size: 0.78rem; }
   .model2-common { display: block; font-size: 0.78rem; }
   .compact .species-sci,
   .compact .model2-sci,
   .compact .model2-common { display: none; }
+  button.xc-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--fg);
+    font-size: 0.7rem;
+    cursor: pointer;
+    flex: none;
+  }
+  button.xc-toggle:hover { filter: brightness(0.95); }
+  .xc-panel { display: none; flex-direction: column; gap: 6px; margin-top: 4px; max-width: 260px; white-space: normal; }
+  .xc-panel.open { display: flex; }
+  tr.xc-row { display: none; }
+  tr.xc-row:has(.xc-panel.open) { display: table-row; }
+  tr.xc-row td {
+    padding-top: 0 !important;
+    padding-bottom: 12px !important;
+    position: static;
+    left: auto;
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    text-align: left;
+    box-shadow: none;
+    z-index: auto;
+  }
+  tr.xc-row .xc-panel {
+    margin-top: 0;
+    max-width: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    padding: 10px;
+  }
+  .xc-rec { display: flex; flex-direction: column; gap: 2px; }
+  .xc-rec audio { width: 100%; height: 32px; }
   button.play {
     border: 1px solid var(--border);
     background: var(--surface);
@@ -365,7 +416,8 @@
     .select-all-mobile { display: flex; }
 
     .table-wrap { border: none; overflow-x: visible; }
-    table { min-width: 0; width: 100%; }
+    table { display: block; min-width: 0; width: 100%; }
+    tbody { display: block; }
     thead { display: none; }
 
     tbody tr {
@@ -386,7 +438,21 @@
     tbody tr[data-verdict="no_detection"] { border-left: 4px solid var(--nodet-fg); }
     tbody tr[data-verdict="not_run"] { border-left: 4px solid var(--border); }
 
+    tbody tr.xc-row {
+      display: none;
+      border: none;
+      box-shadow: none;
+      padding: 0;
+      margin-top: -10px;
+      margin-bottom: 10px;
+      background: transparent !important;
+    }
+    tbody tr.xc-row:has(.xc-panel.open) { display: block; }
+    tr.xc-row td { padding: 0 !important; }
+    tr.xc-row .xc-panel { margin: 0; }
+
     table td {
+      display: block;
       border-bottom: none;
       padding: 3px 0 !important;
       white-space: normal;
@@ -399,27 +465,37 @@
       left: auto !important;
     }
 
-    /* card header: checkbox, verdict pill, species, play button */
+    .model2-sci-link { pointer-events: none; }
+    .model2-sci-link .model2-sci { color: var(--muted); text-decoration: none; }
+
+    /* card header: checkbox, verdict pill, species (grows, absorbing slack), ID, play button */
     td:nth-child(1) { order: 1; }
     td:nth-child(2) { order: 2; }
     td:nth-child(3) { order: 3; flex: 1 1 140px; }
-    td:nth-child(11) { order: 4; }
+    td:nth-child(4) { order: 4; flex: 0 0 auto; font-size: 0.75rem; color: var(--muted); }
+    td:nth-child(10) { order: 5; }
     td:nth-child(1) input[type=checkbox] { width: 20px; height: 20px; }
 
-    /* detail lines, each on its own row */
-    td:nth-child(4), td:nth-child(5), td:nth-child(6), td:nth-child(7),
-    td:nth-child(8), td:nth-child(9), td:nth-child(10) {
-      flex-basis: 100%;
+    /* detail line: Date/time + Orig. model + Orig. conf. share one row */
+    td:nth-child(5), td:nth-child(6), td:nth-child(7),
+    td:nth-child(8), td:nth-child(9) {
       font-size: 0.8rem;
       color: var(--muted);
     }
-    td:nth-child(4) { order: 5; }
-    td:nth-child(5) { order: 6; }
+    td:nth-child(5) { flex: 1 1 auto; order: 6; }
+    td:nth-child(6), td:nth-child(7) { flex: 0 0 auto; }
     td:nth-child(6) { order: 7; }
     td:nth-child(7) { order: 8; }
+    td:nth-child(8), td:nth-child(9) { flex-basis: calc(50% - 5px); }
     td:nth-child(8) { order: 9; }
     td:nth-child(9) { order: 10; }
-    td:nth-child(10) { order: 11; }
+
+    .model2-cell {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+      padding: 8px !important;
+    }
 
     td[data-label]::before {
       content: attr(data-label) ": ";
@@ -427,8 +503,14 @@
       color: var(--fg);
     }
     td:nth-child(1)::before, td:nth-child(2)::before,
-    td:nth-child(3)::before, td:nth-child(11)::before {
+    td:nth-child(3)::before, td:nth-child(6)::before,
+    td:nth-child(7)::before, td:nth-child(10)::before {
       content: none;
+    }
+    td:nth-child(4)::before {
+      content: "#";
+      font-weight: 400;
+      color: var(--muted);
     }
 
     #player-bar {
@@ -455,7 +537,6 @@
 <div class="toolbar toolbar-controls">
   <button id="menu-btn" class="icon-btn" type="button" title="Menu" aria-label="Menu">☰</button>
   <select id="day"></select>
-  <button id="search-btn" class="icon-btn" type="button" title="Search &amp; filter" aria-label="Search &amp; filter">🔍</button>
   <button id="refresh-btn">↻ Refresh</button>
   <span id="run-status"></span>
 
@@ -476,6 +557,7 @@
       <div class="tab active" data-filter="all">All <span class="count" id="count-all"></span></div>
       <div class="tab" data-filter="confirm">Confirm <span class="count" id="count-confirm"></span></div>
       <div class="tab" data-filter="disagree">Disagree <span class="count" id="count-disagree"></span></div>
+      <div class="tab" data-filter="models_disagree">Model Disagree <span class="count" id="count-models_disagree"></span></div>
       <div class="tab" data-filter="no_detection">No detection <span class="count" id="count-no_detection"></span></div>
       <div class="tab" data-filter="not_run">Not run <span class="count" id="count-not_run"></span></div>
     </div>
@@ -507,7 +589,6 @@
         <th data-sort="confidence">Orig. conf.</th>
         <th data-sort="bn_verdict">BirdNET (2nd)</th>
         <th data-sort="pc_verdict">Perch (2nd)</th>
-        <th data-sort="note_posted" title="Whether a birda-verification comment has been posted to BirdNET-Go">Noted</th>
         <th>Play</th>
       </tr>
     </thead>
@@ -542,8 +623,9 @@ let selectedIds = new Set();
 let lastVisibleRows = [];
 let birdnetgoWebUrl = "";
 
-const PILL_LETTER = { confirm: "C", disagree: "D", no_detection: "N", not_run: "–" };
-const PILL_TITLE = { confirm: "Confirm", disagree: "Disagree", no_detection: "No detection", not_run: "Not run" };
+const PILL_LETTER = { confirm: "C", disagree: "D", no_detection: "N", not_run: "–", models_disagree: "M" };
+const PILL_TITLE = { confirm: "Confirm", disagree: "Disagree", no_detection: "No detection", not_run: "Not run", models_disagree: "Models disagree" };
+const FILTER_LABEL = { confirm: "Confirm", disagree: "Disagree", models_disagree: "Model Disagree", no_detection: "No detection", not_run: "Not run" };
 
 function pill(verdict) {
   const letter = PILL_LETTER[verdict] || "?";
@@ -551,15 +633,38 @@ function pill(verdict) {
   return `<span class="pill ${verdict}" title="${title}">${letter}</span>`;
 }
 
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function xenoCantoUrl(species) {
+  return `https://xeno-canto.org/species/${encodeURIComponent(species.replace(/ /g, "-"))}`;
+}
+
 function model2Cell(v, label) {
   const detail = v.top_species
-    ? `<span class="model2-sci">${v.top_species}</span><span class="model2-common">${v.top_common_name || ""}</span>`
+    ? `<div class="model2-detail-row">` +
+        `<div class="model2-names">` +
+          `<a class="model2-sci-link" href="${xenoCantoUrl(v.top_species)}" target="_blank" rel="noopener"><span class="model2-sci">${v.top_species}</span></a>` +
+          `<span class="model2-common">${v.top_common_name || ""}</span>` +
+        `</div>` +
+        `<button type="button" class="xc-toggle" data-species="${v.top_species}" title="Reference recordings from xeno-canto">🔊</button>` +
+      `</div>`
     : "";
   return `<td class="model2-cell" data-label="${label}">${pill(v.verdict)} <span class="sub">${fmtConf(v.top_confidence)}</span>${detail}</td>`;
 }
 
 function fmtConf(c) {
   return c === null || c === undefined ? "—" : c.toFixed(2);
+}
+
+function fmtDate(isoDate) {
+  const [y, m, d] = isoDate.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, { year: "numeric", month: "2-digit", day: "2-digit" });
+}
+
+function fmtDateTime(isoDateTime) {
+  return fmtDate(isoDateTime.slice(0, 10)) + isoDateTime.slice(10);
 }
 
 function getConfirmThreshold() {
@@ -592,7 +697,7 @@ function withThreshold(r, threshold) {
   else if (bn.verdict === "confirm" || pc.verdict === "confirm") overall = "confirm";
   else if (bn.verdict === "no_detection" && pc.verdict === "no_detection") overall = "no_detection";
   else overall = "disagree";
-  return { ...r, verify_birdnet_v24: bn, verify_perch_v2: pc, overall_verdict: overall };
+  return { ...r, verify_birdnet_v24: bn, verify_perch_v2: pc, overall_verdict: overall, models_disagree: modelsDisagree };
 }
 
 function enforceDayScope() {
@@ -619,11 +724,13 @@ function scopedData() {
 function render() {
   const scoped = scopedData();
   updateCounts(scoped);
-  let rows = scoped.filter(r => activeFilter === "all" || r.overall_verdict === activeFilter);
+  let rows = scoped.filter(r => activeFilter === "all"
+    || (activeFilter === "models_disagree" ? r.models_disagree : r.overall_verdict === activeFilter));
 
   rows.sort((a, b) => {
     let va, vb;
     if (sortKey === "species") { va = a.common_name; vb = b.common_name; }
+    else if (sortKey === "overall_verdict") { va = a.overall_verdict + (a.models_disagree ? "_models" : ""); vb = b.overall_verdict + (b.models_disagree ? "_models" : ""); }
     else if (sortKey === "bn_verdict") { va = a.verify_birdnet_v24.verdict; vb = b.verify_birdnet_v24.verdict; }
     else if (sortKey === "pc_verdict") { va = a.verify_perch_v2.verdict; vb = b.verify_perch_v2.verdict; }
     else if (sortKey === "model") { va = a.model; vb = b.model; }
@@ -635,29 +742,37 @@ function render() {
   });
 
   const tbody = document.getElementById("rows");
-  tbody.innerHTML = rows.map(r => {
+  tbody.innerHTML = rows.map((r, i) => {
     const bn = r.verify_birdnet_v24, pc = r.verify_perch_v2;
+    const altClass = i % 2 === 1 ? " row-alt" : "";
     const clipAttr = r.clip_name ? `data-clip="${r.clip_name}" data-label="${r.common_name} #${r.detection_id}" data-id="${r.detection_id}"` : "";
     const sciLine = r.common_name !== r.species ? `<span class="species-sci">${r.species}</span>` : "";
     const reviewUrl = `${birdnetgoWebUrl}/ui/detections/${r.detection_id}?tab=review`;
-    return `<tr class="${r.clip_exists ? "" : "no-clip"}" data-verdict="${r.overall_verdict}">
+    return `<tr class="${r.clip_exists ? "" : "no-clip"}${altClass}" data-verdict="${r.overall_verdict}">
       <td data-label="Select"><input type="checkbox" class="row-select" data-id="${r.detection_id}" ${selectedIds.has(r.detection_id) ? "checked" : ""}></td>
-      <td data-label="Overall">${pill(r.overall_verdict)}</td>
+      <td data-label="Overall">${pill(r.overall_verdict)}${r.models_disagree ? pill("models_disagree") : ""}</td>
       <td class="species-cell" data-label="Species"><a class="species-link" href="${reviewUrl}" target="_blank" rel="noopener"><span class="species-common">${r.common_name}</span>${sciLine}</a></td>
       <td data-label="ID" class="mono">${r.detection_id}</td>
-      <td data-label="Date/time" class="mono">${r.detected_at_local.slice(0, 16).replace("T", " ")}</td>
-      <td data-label="Orig. model">${r.model}</td>
-      <td data-label="Orig. conf." class="mono">${fmtConf(r.confidence)}</td>
+      <td data-label="Date/time" class="mono">${fmtDateTime(r.detected_at_local.slice(0, 16).replace("T", " "))}</td>
+      <td data-label="Model">${r.model}</td>
+      <td data-label="Conf." class="mono">${fmtConf(r.confidence)}</td>
       ${model2Cell(bn, "BirdNET (2nd)")}
       ${model2Cell(pc, "Perch (2nd)")}
-      <td data-label="Noted" title="${r.note_posted ? "birda result posted to BirdNET-Go" : "no comment posted yet"}">${r.note_posted ? "📝" : "—"}</td>
       <td data-label="Play">${r.clip_exists ? `<button class="play" ${clipAttr}>▶</button>` : "—"}</td>
-    </tr>`;
+    </tr>
+    <tr class="xc-row"><td colspan="10"><div class="xc-panel"></div></td></tr>`;
   }).join("");
 
-  document.getElementById("subtitle").textContent =
-    `Showing ${rows.length} of ${scoped.length} candidates` +
-    (document.getElementById("all-days").checked ? " (all days)" : ` for ${document.getElementById("day").value}`);
+  const filterSuffix = activeFilter === "all" ? "" : ` (${escapeHtml(FILTER_LABEL[activeFilter] || activeFilter)})`;
+  const rareMax = document.getElementById("rare-max").value;
+  const dayScope = document.getElementById("all-days").checked
+    ? "(all days)"
+    : `for ${escapeHtml(fmtDate(document.getElementById("day").value))}`;
+  document.getElementById("subtitle").innerHTML =
+    `<span class="nowrap">Showing ${rows.length}${filterSuffix} of ${scoped.length} candidates</span> ` +
+    `<span class="nowrap">${dayScope}</span> · ` +
+    `<span class="nowrap">rarity 1–${rareMax}</span> · ` +
+    `<span class="nowrap">confirm ≥ ${getConfirmThreshold().toFixed(2)}</span>`;
 
   lastVisibleRows = rows;
   updateSelectionUI(rows);
@@ -687,9 +802,12 @@ function updateSelectionUI(visibleRows) {
 }
 
 function updateCounts(scoped) {
-  const counts = { all: scoped.length, confirm: 0, disagree: 0, no_detection: 0, not_run: 0 };
-  scoped.forEach(r => counts[r.overall_verdict] = (counts[r.overall_verdict] || 0) + 1);
-  for (const k of ["all", "confirm", "disagree", "no_detection", "not_run"]) {
+  const counts = { all: scoped.length, confirm: 0, disagree: 0, models_disagree: 0, no_detection: 0, not_run: 0 };
+  scoped.forEach(r => {
+    counts[r.overall_verdict] = (counts[r.overall_verdict] || 0) + 1;
+    if (r.models_disagree) counts.models_disagree++;
+  });
+  for (const k of ["all", "confirm", "disagree", "models_disagree", "no_detection", "not_run"]) {
     document.getElementById(`count-${k}`).textContent = `(${counts[k] || 0})`;
   }
 }
@@ -699,7 +817,7 @@ function loadDays(selectDay) {
     const sel = document.getElementById("day");
     const prev = selectDay || sel.value;
     sel.innerHTML = days.map(d =>
-      `<option value="${d.day}">${d.day} — ${d.with_clip} candidate(s), ${d.verified} verified</option>`
+      `<option value="${d.day}">${fmtDate(d.day)} — ${d.with_clip} candidate(s), ${d.verified} verified</option>`
     ).join("");
     if (prev && days.some(d => d.day === prev)) sel.value = prev;
   });
@@ -851,21 +969,17 @@ async function submitReview(verified, label) {
 document.getElementById("accept-btn").addEventListener("click", () => submitReview("correct", "Correct"));
 document.getElementById("false-positive-btn").addEventListener("click", () => submitReview("false_positive", "False Positive"));
 
-function toggleDropdown(panel, others) {
-  const willOpen = !panel.classList.contains("open");
-  others.forEach(p => p.classList.remove("open"));
-  panel.classList.toggle("open", willOpen);
-}
-
 document.getElementById("menu-btn").addEventListener("click", () => {
-  toggleDropdown(document.getElementById("menu-panel"), [document.getElementById("search-panel")]);
-});
-document.getElementById("search-btn").addEventListener("click", () => {
-  toggleDropdown(document.getElementById("search-panel"), [document.getElementById("menu-panel")]);
+  const menuPanel = document.getElementById("menu-panel");
+  const searchPanel = document.getElementById("search-panel");
+  const willOpen = !menuPanel.classList.contains("open");
+  menuPanel.classList.toggle("open", willOpen);
+  searchPanel.classList.toggle("open", willOpen);
 });
 
 document.getElementById("search").addEventListener("input", render);
 document.getElementById("day").addEventListener("change", () => {
+  document.getElementById("all-days").checked = false;
   enforceDayScope();
   render();
 });
@@ -920,6 +1034,44 @@ document.getElementById("rows").addEventListener("click", e => {
     cb.checked = Number(cb.dataset.id) === id;
   });
   updateSelectionUI(lastVisibleRows);
+});
+
+document.getElementById("rows").addEventListener("click", e => {
+  const btn = e.target.closest(".xc-toggle");
+  if (!btn) return;
+  const panel = btn.closest("tr").nextElementSibling.querySelector(".xc-panel");
+  const isActive = panel.classList.contains("open") && panel.dataset.activeSpecies === btn.dataset.species;
+  panel.classList.remove("open");
+  panel.innerHTML = "";
+  delete panel.dataset.activeSpecies;
+  if (isActive) return;
+  panel.dataset.activeSpecies = btn.dataset.species;
+  panel.classList.add("open");
+  panel.innerHTML = `<span class="sub">Loading…</span>`;
+  fetch("/api/xenocanto?species=" + encodeURIComponent(btn.dataset.species))
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) {
+        panel.innerHTML = `<span class="sub">xeno-canto: ${data.error}</span>`;
+        return;
+      }
+      if (!data.recordings || data.recordings.length === 0) {
+        panel.innerHTML = `<span class="sub">No recordings found.</span>`;
+        return;
+      }
+      panel.innerHTML = data.recordings.slice(0, 3).map(r => `
+        <div class="xc-rec">
+          <audio controls preload="none" src="${r.file}"></audio>
+          <span class="sub">${escapeHtml(r.recordist || "Unknown")} · Q${escapeHtml(r.quality || "?")} · ${escapeHtml(r.country || "")} ·
+            <a href="${r.url}" target="_blank" rel="noopener">XC${r.id}</a> ·
+            <a href="${r.license}" target="_blank" rel="noopener">license</a>
+          </span>
+        </div>
+      `).join("");
+    })
+    .catch(err => {
+      panel.innerHTML = `<span class="sub">Failed to load: ${err}</span>`;
+    });
 });
 
 document.getElementById("player-accept-btn").addEventListener("click", () => submitReview("correct", "Correct"));
