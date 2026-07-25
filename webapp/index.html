@@ -991,11 +991,11 @@ function selectedSummary(ids) {
   return names.slice(0, MAX).join("\n") + `\n+${names.length - MAX} more`;
 }
 
-async function postReview(ids, verified) {
+async function postReview(ids, verified, source) {
   const resp = await fetch("/api/review", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ detection_ids: ids, verified }),
+    body: JSON.stringify({ detection_ids: ids, verified, source }),
   });
   return resp.json();
 }
@@ -1015,8 +1015,8 @@ async function submitAuto() {
   status.textContent = "Auto-processing…";
   try {
     const results = [];
-    if (confirmIds.length) results.push(await postReview(confirmIds, "correct"));
-    if (rejectIds.length) results.push(await postReview(rejectIds, "false_positive"));
+    if (confirmIds.length) results.push(await postReview(confirmIds, "correct", "auto"));
+    if (rejectIds.length) results.push(await postReview(rejectIds, "false_positive", "auto"));
     const errors = results.filter(r => r.error);
     if (errors.length) {
       status.textContent = "Error: " + errors.map(e => e.error).join("; ");
@@ -1040,7 +1040,7 @@ async function submitAutoRow(id, verdict, btn) {
   btn.disabled = true;
   status.textContent = "Saving…";
   try {
-    const resp = await postReview([id], verified);
+    const resp = await postReview([id], verified, "auto");
     if (resp.error) {
       status.textContent = "Error: " + resp.error;
       btn.disabled = false;
@@ -1069,7 +1069,7 @@ async function submitReview(verified, label) {
   fetch("/api/review", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ detection_ids: ids, verified }),
+    body: JSON.stringify({ detection_ids: ids, verified, source: "manual" }),
   })
     .then(r => r.json())
     .then(resp => {

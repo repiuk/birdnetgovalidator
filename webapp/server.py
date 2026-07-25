@@ -320,6 +320,7 @@ class Handler(BaseHTTPRequestHandler):
             payload = {}
         detection_ids = payload.get("detection_ids") or []
         verified = payload.get("verified")
+        source = payload.get("source", "manual")
         if not detection_ids or verified not in ("correct", "false_positive"):
             self._send_json(
                 {"error": "missing detection_ids or invalid verified value"}, status=400
@@ -330,7 +331,18 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as e:
             self._send_json({"error": str(e)}, status=500)
             return
-        self._send_json({"ok": True, "count": len(detection_ids)})
+
+        comment_errors = []
+        for detection_id in detection_ids:
+            try:
+                birdnetgo_client.post_review_decision_comment(detection_id, verified, source)
+            except Exception as e:  # noqa: BLE001 - a comment-post failure must not lose the review write
+                comment_errors.append(str(e))
+
+        resp = {"ok": True, "count": len(detection_ids)}
+        if comment_errors:
+            resp["comment_errors"] = comment_errors
+        self._send_json(resp)
 
     def _serve_audio(self, clip_name):
         full_path = (CLIPS_BASE / clip_name).resolve()

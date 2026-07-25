@@ -128,3 +128,19 @@ def post_verification_comment(detection_id, candidate, rec):
     comment_text = build_comment(candidate, rec)
     _post_comment(detection_id, comment_text)
     return True
+
+
+REVIEW_VERDICT_LABEL = {"correct": "Correct", "false_positive": "False positive"}
+
+
+def post_review_decision_comment(detection_id, verified, source):
+    """
+    Posts a comment recording that this detection's review status was set
+    via the webapp, and how (auto vs manual), so it's visible later in
+    BirdNET-Go's own review page alongside a direct-in-Go review. Always
+    posts -- no existing-comment check, since the point is a log entry per
+    decision, not a single idempotent marker like build_comment().
+    """
+    label = REVIEW_VERDICT_LABEL.get(verified, verified)
+    comment_text = f"{MARKER} Reviewed via webapp: {label} ({source})"
+    _post_comment(detection_id, comment_text)
