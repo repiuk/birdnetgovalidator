@@ -159,6 +159,15 @@
   tbody tr[data-verdict="auto_reject"]:hover td:nth-child(2),
   tbody tr[data-verdict="auto_reject"]:hover td:nth-child(3) { background: var(--row-hover); }
   .auto-icon { margin-left: 3px; font-size: 0.75rem; vertical-align: middle; }
+  button.auto-row-btn {
+    border: none;
+    background: transparent;
+    padding: 1px 2px;
+    cursor: pointer;
+    border-radius: 4px;
+    line-height: 1;
+  }
+  button.auto-row-btn:hover { background: var(--row-hover); transform: scale(1.15); }
   .pill {
     display: inline-flex;
     align-items: center;
@@ -671,11 +680,11 @@ function pill(verdict) {
   return `<span class="pill ${verdict}" title="${title}">${letter}</span>`;
 }
 
-function overallPill(verdict) {
+function overallPill(verdict, detectionId) {
   const letter = OVERALL_LETTER[verdict] || "?";
   const title = OVERALL_TITLE[verdict] || verdict;
   const auto = (verdict === "auto_confirm" || verdict === "auto_reject")
-    ? `<span class="auto-icon" title="Eligible for ⚡ Auto">⚡</span>`
+    ? `<button type="button" class="auto-icon auto-row-btn" data-id="${detectionId}" data-verdict="${verdict}" title="Auto-apply this detection now">⚡</button>`
     : "";
   return `<span class="pill pill-wide ${verdict}" title="${title}">${letter}</span>${auto}`;
 }
@@ -796,7 +805,7 @@ function render() {
     const reviewUrl = `${birdnetgoWebUrl}/ui/detections/${r.detection_id}?tab=review`;
     return `<tr class="${r.clip_exists ? "" : "no-clip"}${altClass}" data-verdict="${r.overall_verdict}">
       <td data-label="Select"><input type="checkbox" class="row-select" data-id="${r.detection_id}" ${selectedIds.has(r.detection_id) ? "checked" : ""}></td>
-      <td data-label="Overall">${overallPill(r.overall_verdict)}</td>
+      <td data-label="Overall">${overallPill(r.overall_verdict, r.detection_id)}</td>
       <td class="species-cell" data-label="Species"><a class="species-link" href="${reviewUrl}" target="_blank" rel="noopener"><span class="species-common">${r.common_name}</span>${sciLine}</a></td>
       <td data-label="ID" class="mono">${r.detection_id}</td>
       <td data-label="Date/time" class="mono">${fmtDateTime(r.detected_at_local.slice(0, 16).replace("T", " "))}</td>
@@ -1021,6 +1030,30 @@ async function submitAuto() {
   }
 }
 
+async function submitAutoRow(id, verdict, btn) {
+  const verified = verdict === "auto_confirm" ? "correct" : "false_positive";
+  const label = verdict === "auto_confirm" ? "Correct" : "False Positive";
+  const message = `Mark this detection as ${label} in BirdNET-Go?\n\n${selectedSummary([id])}`;
+  const confirmed = await customConfirm(message);
+  if (!confirmed) return;
+  const status = document.getElementById("review-status");
+  btn.disabled = true;
+  status.textContent = "Saving…";
+  try {
+    const resp = await postReview([id], verified);
+    if (resp.error) {
+      status.textContent = "Error: " + resp.error;
+      btn.disabled = false;
+      return;
+    }
+    status.textContent = `Marked #${id} as ${label}.`;
+    await Promise.all([loadCandidates(), loadDays()]);
+  } catch (err) {
+    status.textContent = "Error: " + err;
+    btn.disabled = false;
+  }
+}
+
 async function submitReview(verified, label) {
   const ids = Array.from(selectedIds);
   if (ids.length === 0) return;
@@ -1103,6 +1136,12 @@ function closePlayer() {
   document.getElementById("player-bar").classList.remove("active");
   document.querySelectorAll("button.play").forEach(b => b.classList.remove("playing"));
 }
+
+document.getElementById("rows").addEventListener("click", e => {
+  const btn = e.target.closest("button.auto-row-btn");
+  if (!btn) return;
+  submitAutoRow(Number(btn.dataset.id), btn.dataset.verdict, btn);
+});
 
 document.getElementById("rows").addEventListener("click", e => {
   const btn = e.target.closest("button.play");
