@@ -142,6 +142,23 @@
   td:nth-child(1), td:nth-child(2), td:nth-child(3) { z-index: 1; }
   tbody tr.row-alt td:nth-child(1), tbody tr.row-alt td:nth-child(2), tbody tr.row-alt td:nth-child(3) { background: var(--row-alt); }
   tbody tr:hover td:nth-child(1), tbody tr:hover td:nth-child(2), tbody tr:hover td:nth-child(3) { background: var(--row-hover); }
+  tbody tr[data-verdict="auto_confirm"],
+  tbody tr[data-verdict="auto_confirm"] td:nth-child(1),
+  tbody tr[data-verdict="auto_confirm"] td:nth-child(2),
+  tbody tr[data-verdict="auto_confirm"] td:nth-child(3) { background: var(--confirm-bg); }
+  tbody tr[data-verdict="auto_reject"],
+  tbody tr[data-verdict="auto_reject"] td:nth-child(1),
+  tbody tr[data-verdict="auto_reject"] td:nth-child(2),
+  tbody tr[data-verdict="auto_reject"] td:nth-child(3) { background: var(--disagree-bg); }
+  tbody tr[data-verdict="auto_confirm"]:hover,
+  tbody tr[data-verdict="auto_confirm"]:hover td:nth-child(1),
+  tbody tr[data-verdict="auto_confirm"]:hover td:nth-child(2),
+  tbody tr[data-verdict="auto_confirm"]:hover td:nth-child(3),
+  tbody tr[data-verdict="auto_reject"]:hover,
+  tbody tr[data-verdict="auto_reject"]:hover td:nth-child(1),
+  tbody tr[data-verdict="auto_reject"]:hover td:nth-child(2),
+  tbody tr[data-verdict="auto_reject"]:hover td:nth-child(3) { background: var(--row-hover); }
+  .auto-icon { margin-left: 3px; font-size: 0.75rem; vertical-align: middle; }
   .pill {
     display: inline-flex;
     align-items: center;
@@ -443,8 +460,8 @@
       background: var(--surface) !important;
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
     }
-    tbody tr[data-verdict="auto_confirm"] { border-left: 4px solid var(--confirm-fg); }
-    tbody tr[data-verdict="auto_reject"] { border-left: 4px solid var(--disagree-fg); }
+    tbody tr[data-verdict="auto_confirm"] { border-left: 4px solid var(--confirm-fg); background: var(--confirm-bg) !important; }
+    tbody tr[data-verdict="auto_reject"] { border-left: 4px solid var(--disagree-fg); background: var(--disagree-bg) !important; }
     tbody tr[data-verdict="manual_review"] { border-left: 4px solid var(--manual-fg); }
     tbody tr[data-verdict="no_detection"] { border-left: 4px solid var(--nodet-fg); }
     tbody tr[data-verdict="not_run"] { border-left: 4px solid var(--border); }
@@ -657,7 +674,10 @@ function pill(verdict) {
 function overallPill(verdict) {
   const letter = OVERALL_LETTER[verdict] || "?";
   const title = OVERALL_TITLE[verdict] || verdict;
-  return `<span class="pill pill-wide ${verdict}" title="${title}">${letter}</span>`;
+  const auto = (verdict === "auto_confirm" || verdict === "auto_reject")
+    ? `<span class="auto-icon" title="Eligible for ⚡ Auto">⚡</span>`
+    : "";
+  return `<span class="pill pill-wide ${verdict}" title="${title}">${letter}</span>${auto}`;
 }
 
 function escapeHtml(s) {
