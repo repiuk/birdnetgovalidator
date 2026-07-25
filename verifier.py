@@ -8,7 +8,6 @@ webapp's on-demand "Run" button.
 
 import json
 import os
-import re
 import subprocess
 from pathlib import Path
 
@@ -18,26 +17,8 @@ import config
 ORT_DYLIB_PATH = config.BIRDA_ORT_DYLIB_PATH
 BIRDA_BIN = config.BIRDA_BIN
 RESULTS_DIR = config.RESULTS_DIR
-FFMPEG_BIN = config.FFMPEG_BIN
-QUIET_MAX_DB_THRESHOLD = config.QUIET_MAX_DB_THRESHOLD
-LOUD_MIN_DB_THRESHOLD = config.LOUD_MIN_DB_THRESHOLD
 CONFIRM_THRESHOLD = 0.8
 MODELS = ["birdnet-v24", "perch-v2"]
-
-VOLUME_RE = re.compile(r"(mean|max)_volume:\s*(-?[\d.]+) dB")
-
-
-def measure_loudness(clip_path):
-    """Peak and mean loudness (dBFS) of a clip via ffmpeg's volumedetect
-    filter -- ffmpeg decodes and discards the audio (-f null -), only its
-    stderr analysis output is used. Returns (mean_db, max_db), either None
-    if ffmpeg's output couldn't be parsed (e.g. a corrupt/empty clip)."""
-    cmd = [FFMPEG_BIN, "-i", clip_path, "-af", "volumedetect", "-f", "null", "-"]
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    values = dict(VOLUME_RE.findall(result.stderr))
-    mean_db = float(values["mean"]) if "mean" in values else None
-    max_db = float(values["max"]) if "max" in values else None
-    return mean_db, max_db
 
 
 def run_birda_batch(model, clip_paths):
@@ -139,11 +120,6 @@ def verify_candidates(candidates, confirm_threshold=CONFIRM_THRESHOLD):
         bn_verdict = rec["verify_birdnet_v24"]["verdict"]
         pc_verdict = rec["verify_perch_v2"]["verdict"]
         rec["overall_verdict"] = overall_bucket(bn_verdict, pc_verdict)
-
-        mean_db, max_db = measure_loudness(c["clip_path"])
-        rec["loudness"] = {"mean_db": mean_db, "max_db": max_db}
-        rec["quiet"] = max_db is not None and max_db < QUIET_MAX_DB_THRESHOLD
-        rec["loud"] = max_db is not None and max_db > LOUD_MIN_DB_THRESHOLD
 
         try:
             rec["birdnetgo_comment_posted"] = birdnetgo_client.post_verification_comment(

@@ -56,20 +56,6 @@ WEBAPP_PORT = int(os.environ.get("WEBAPP_PORT", "8091"))
 # lookups are simply unavailable if unset.
 XENO_CANTO_API_KEY = os.environ.get("XENO_CANTO_API_KEY", "")
 
-# Used to measure each candidate clip's actual loudness (peak/mean dBFS via
-# ffmpeg's volumedetect filter) so near-silent clips can be flagged before
-# you spend time listening to them. -30 dB (a natural gap in an initial
-# sample) flagged a clip at -36.2 dB that turned out to still be audible, so
-# lowered to -36 -- tune further via .env if it's still off.
-FFMPEG_BIN = os.environ.get("FFMPEG_BIN", "ffmpeg")
-QUIET_MAX_DB_THRESHOLD = float(os.environ.get("QUIET_MAX_DB_THRESHOLD", "-36"))
-
-# Peak above this is flagged "loud". -10 dB is where a gap showed up in a
-# real week-long sample (mostly Tettigonia viridissima / bush-cricket
-# stridulation, plus a couple of exceptionally close bird calls) -- tune via
-# .env once you've listened to a few.
-LOUD_MIN_DB_THRESHOLD = float(os.environ.get("LOUD_MIN_DB_THRESHOLD", "-10"))
-
 # Generated/runtime data, always local to this checkout.
 RESULTS_DIR = REPO_DIR / "birda_results"
 CACHE_PATH = REPO_DIR / "verification_cache.json"

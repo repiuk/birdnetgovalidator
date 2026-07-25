@@ -26,6 +26,7 @@ import config  # noqa: E402
 import verifier  # noqa: E402
 import candidate_finder  # noqa: E402
 import birdnetgo_client  # noqa: E402
+import cleanup  # noqa: E402
 
 CACHE_PATH = config.CACHE_PATH
 CLIPS_BASE = config.CLIPS_DIR
@@ -34,7 +35,6 @@ PORT = config.WEBAPP_PORT
 RANGE_RE = re.compile(r"bytes=(\d*)-(\d*)")
 
 NOT_RUN = {"verdict": "not_run", "top_species": None, "top_confidence": None}
-NO_LOUDNESS = {"mean_db": None, "max_db": None}
 
 # Dutch common names, matching BirdNET-Go's own GUI locale (config.yaml locale: nl).
 # Bundled with the birda birdnet-v24 model install; covers birds only, so
@@ -90,16 +90,10 @@ def merge(candidates, cache):
             rec["verify_birdnet_v24"] = with_top_common_name(cached["verify_birdnet_v24"])
             rec["verify_perch_v2"] = with_top_common_name(cached["verify_perch_v2"])
             rec["overall_verdict"] = cached["overall_verdict"]
-            rec["loudness"] = cached.get("loudness", NO_LOUDNESS)
-            rec["quiet"] = cached.get("quiet", False)
-            rec["loud"] = cached.get("loud", False)
         else:
             rec["verify_birdnet_v24"] = NOT_RUN
             rec["verify_perch_v2"] = NOT_RUN
             rec["overall_verdict"] = "not_run"
-            rec["loudness"] = NO_LOUDNESS
-            rec["quiet"] = False
-            rec["loud"] = False
         rec["note_posted"] = c["detection_id"] in marked_ids
         out.append(rec)
     return out
@@ -229,6 +223,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_run()
         elif path == "/api/review":
             self._handle_review()
+        elif path == "/api/cleanup":
+            self._handle_cleanup()
         else:
             self.send_error(404, "Not found")
 
@@ -350,6 +346,14 @@ class Handler(BaseHTTPRequestHandler):
         if comment_errors:
             resp["comment_errors"] = comment_errors
         self._send_json(resp)
+
+    def _handle_cleanup(self):
+        try:
+            result = cleanup.run_cleanup()
+        except Exception as e:
+            self._send_json({"error": str(e)}, status=500)
+            return
+        self._send_json({"ok": True, **result})
 
     def _serve_audio(self, clip_name):
         full_path = (CLIPS_BASE / clip_name).resolve()
