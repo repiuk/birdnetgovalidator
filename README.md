@@ -47,6 +47,13 @@ in `.env` — get one from your xeno-canto account page (requires a verified
 email) or register an app-specific key. Without it, the button just reports
 that no key is configured; everything else works fine.
 
+Playing a clip shows a small spectrogram preview button in the player bar —
+click it to pop up BirdNET-Go's own full labeled spectrogram (fetched
+directly from its `/api/v2/spectrogram` endpoint; BirdNET-Go's own detection
+page can't be embedded, since it sends its own frame-blocking headers). The
+player also has gain, low-cut filter, and normalize controls, built with the
+Web Audio API, for a closer listen on windy or quiet clips.
+
 ## Requirements
 
 - Python 3.9+ (stdlib only — no pip install needed for this repo itself)
@@ -105,6 +112,7 @@ Then `sudo systemctl enable --now birdnet-validator`.
 | `candidate_finder.py` | Picks which recent detections need review (reads BirdNET-Go's DB read-only) |
 | `excluded_species.example.txt` | Template for `excluded_species.txt`, species to always skip |
 | `verifier.py` | Runs birda against candidate clips, computes verdicts |
+| `cleanup.py` | Prunes cache entries and birda result files for detections that have aged out of the 7-day window |
 | `birdnetgo_client.py` | All writes back to BirdNET-Go — goes through its own HTTP API, never the DB directly |
 | `webapp/server.py` | Stdlib HTTP server: serves the UI, candidate/day APIs, audio streaming, review actions |
 | `webapp/index.html` | The UI itself — single file, no build step, no framework |
@@ -123,3 +131,8 @@ Then `sudo systemctl enable --now birdnet-validator`.
 - `birda`'s `-o` output naming isn't model-specific (a known upstream
   quirk), so `verifier.py` always uses a separate output directory per
   model to avoid one run's results silently overwriting another's.
+- `verification_cache.json` and `birda_results/` only ever need entries for
+  detections inside the app's fixed 7-day window — anything older is dead
+  weight that just accumulates forever. The 🧹 Cleanup button (hamburger
+  menu) prunes both; it's safe to run any time, since it never removes
+  anything still inside that window.
