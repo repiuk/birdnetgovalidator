@@ -60,6 +60,26 @@ def verdict_for(detections, original_species, confirm_threshold=CONFIRM_THRESHOL
     return "disagree", top["scientific_name"], top["confidence"]
 
 
+def overall_bucket(bn_verdict, pc_verdict):
+    """
+    Combine the two per-model verdicts (each confirm/disagree/no_detection)
+    into one of four buckets:
+      - auto_confirm: both models confirm the original species (CC)
+      - no_detection: neither model found anything (NN)
+      - manual_review: exactly one model confirms, the other doesn't fully
+        agree (CD/DC/CN/NC) -- a real judgment call, needs a human + xeno-canto
+      - auto_reject: neither model confirms, and it's not NN (DD/DN/ND) --
+        strong-enough evidence the original call was wrong
+    """
+    if bn_verdict == "confirm" and pc_verdict == "confirm":
+        return "auto_confirm"
+    if bn_verdict == "no_detection" and pc_verdict == "no_detection":
+        return "no_detection"
+    if "confirm" in (bn_verdict, pc_verdict):
+        return "manual_review"
+    return "auto_reject"
+
+
 def verify_candidates(candidates, confirm_threshold=CONFIRM_THRESHOLD):
     """
     candidates: list of candidate dicts (from find_candidates.py) with
@@ -84,14 +104,9 @@ def verify_candidates(candidates, confirm_threshold=CONFIRM_THRESHOLD):
                 "top_species": top_species,
                 "top_confidence": top_conf,
             }
-        verdicts = [rec[f"verify_{m.replace('-', '_')}"]["verdict"] for m in MODELS]
-        if "confirm" in verdicts:
-            overall = "confirm"
-        elif all(v == "no_detection" for v in verdicts):
-            overall = "no_detection"
-        else:
-            overall = "disagree"
-        rec["overall_verdict"] = overall
+        bn_verdict = rec["verify_birdnet_v24"]["verdict"]
+        pc_verdict = rec["verify_perch_v2"]["verdict"]
+        rec["overall_verdict"] = overall_bucket(bn_verdict, pc_verdict)
 
         try:
             rec["birdnetgo_comment_posted"] = birdnetgo_client.post_verification_comment(

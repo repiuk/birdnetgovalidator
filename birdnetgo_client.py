@@ -23,9 +23,10 @@ BASE_URL = config.BIRDNETGO_API_URL
 MARKER = "[birda-validator]"
 
 VERDICT_LABEL = {
-    "confirm": "Confirm",
-    "disagree": "Disagree",
-    "no_detection": "No detection",
+    "auto_confirm": "CC auto-confirm",
+    "auto_reject": "DD auto-reject",
+    "manual_review": "MD manual review",
+    "no_detection": "NN no detection",
 }
 
 

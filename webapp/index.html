@@ -16,12 +16,16 @@
     --disagree-fg: #a23a26;
     --nodet-bg: #e4e9e7;
     --nodet-fg: #5b6b68;
+    --manual-bg: #f7edd2;
+    --manual-fg: #8a6d1f;
     --accent: #3c6e78;
     --accent-fg: #ffffff;
     --accept-bg: #2f7d4f;
     --accept-fg: #ffffff;
     --reject-bg: #b0402a;
     --reject-fg: #ffffff;
+    --auto-bg: #3c6e78;
+    --auto-fg: #ffffff;
     --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", monospace;
   }
   @media (prefers-color-scheme: dark) {
@@ -39,10 +43,14 @@
       --disagree-fg: #f0947e;
       --nodet-bg: #232f2b;
       --nodet-fg: #93a39d;
+      --manual-bg: rgba(230, 180, 60, 0.18);
+      --manual-fg: #e6c157;
       --accent: #5b9aa6;
       --accent-fg: #0a1414;
       --accept-bg: #3a8f5c;
       --accept-fg: #f2fbf5;
+      --auto-bg: #5b9aa6;
+      --auto-fg: #0a1414;
       --reject-bg: #b6503a;
       --reject-fg: #fdf1ec;
     }
@@ -147,11 +155,12 @@
     line-height: 1;
     cursor: default;
   }
-  .pill.confirm { background: var(--confirm-bg); color: var(--confirm-fg); }
-  .pill.disagree { background: var(--disagree-bg); color: var(--disagree-fg); }
-  .pill.models_disagree { background: var(--disagree-bg); color: var(--disagree-fg); margin-left: 3px; }
+  .pill.confirm, .pill.auto_confirm { background: var(--confirm-bg); color: var(--confirm-fg); }
+  .pill.disagree, .pill.auto_reject { background: var(--disagree-bg); color: var(--disagree-fg); }
+  .pill.manual_review { background: var(--manual-bg); color: var(--manual-fg); }
   .pill.no_detection { background: var(--nodet-bg); color: var(--nodet-fg); }
   .pill.not_run { background: transparent; color: var(--muted); font-weight: 400; }
+  .pill.pill-wide { width: auto; min-width: 24px; padding: 0 5px; border-radius: 9px; }
   select#day {
     padding: 8px 12px;
     border: 1px solid var(--border);
@@ -196,6 +205,7 @@
   button.bulk-action:disabled { opacity: 0.4; cursor: default; }
   .btn-accept { background: var(--accept-bg); color: var(--accept-fg); }
   .btn-reject { background: var(--reject-bg); color: var(--reject-fg); }
+  .btn-auto { background: var(--auto-bg); color: var(--auto-fg); }
   #selection-count { font-size: 0.85rem; color: var(--muted); }
   input.param {
     width: 56px;
@@ -433,8 +443,9 @@
       background: var(--surface) !important;
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
     }
-    tbody tr[data-verdict="confirm"] { border-left: 4px solid var(--confirm-fg); }
-    tbody tr[data-verdict="disagree"] { border-left: 4px solid var(--disagree-fg); }
+    tbody tr[data-verdict="auto_confirm"] { border-left: 4px solid var(--confirm-fg); }
+    tbody tr[data-verdict="auto_reject"] { border-left: 4px solid var(--disagree-fg); }
+    tbody tr[data-verdict="manual_review"] { border-left: 4px solid var(--manual-fg); }
     tbody tr[data-verdict="no_detection"] { border-left: 4px solid var(--nodet-fg); }
     tbody tr[data-verdict="not_run"] { border-left: 4px solid var(--border); }
 
@@ -555,10 +566,10 @@
     <input type="text" id="search" placeholder="Search species or ID…">
     <div class="tabs-row">
       <div class="tab active" data-filter="all">All <span class="count" id="count-all"></span></div>
-      <div class="tab" data-filter="confirm">Confirm <span class="count" id="count-confirm"></span></div>
-      <div class="tab" data-filter="disagree">Disagree <span class="count" id="count-disagree"></span></div>
-      <div class="tab" data-filter="models_disagree">Model Disagree <span class="count" id="count-models_disagree"></span></div>
-      <div class="tab" data-filter="no_detection">No detection <span class="count" id="count-no_detection"></span></div>
+      <div class="tab" data-filter="auto_confirm">CC Auto-confirm <span class="count" id="count-auto_confirm"></span></div>
+      <div class="tab" data-filter="auto_reject">DD Auto-reject <span class="count" id="count-auto_reject"></span></div>
+      <div class="tab" data-filter="manual_review">MD Manual review <span class="count" id="count-manual_review"></span></div>
+      <div class="tab" data-filter="no_detection">NN No detection <span class="count" id="count-no_detection"></span></div>
       <div class="tab" data-filter="not_run">Not run <span class="count" id="count-not_run"></span></div>
     </div>
   </div>
@@ -571,6 +582,7 @@
     <span id="review-status" class="sub"></span>
   </div>
   <div class="toolbar-actions-buttons">
+    <button id="auto-btn" class="bulk-action btn-auto" disabled title="Write back all CC (auto-confirm) and DD (auto-reject) rows currently in the list">⚡ Auto</button>
     <button id="accept-btn" class="bulk-action btn-accept" disabled>✓ Accept</button>
     <button id="false-positive-btn" class="bulk-action btn-reject" disabled>✕ False positive</button>
   </div>
@@ -621,16 +633,31 @@ let sortDir = 1;
 let activeFilter = "all";
 let selectedIds = new Set();
 let lastVisibleRows = [];
+let lastScopedRows = [];
 let birdnetgoWebUrl = "";
 
-const PILL_LETTER = { confirm: "C", disagree: "D", no_detection: "N", not_run: "–", models_disagree: "M" };
-const PILL_TITLE = { confirm: "Confirm", disagree: "Disagree", no_detection: "No detection", not_run: "Not run", models_disagree: "Models disagree" };
-const FILTER_LABEL = { confirm: "Confirm", disagree: "Disagree", models_disagree: "Model Disagree", no_detection: "No detection", not_run: "Not run" };
+const PILL_LETTER = { confirm: "C", disagree: "D", no_detection: "N", not_run: "–" };
+const PILL_TITLE = { confirm: "Confirm", disagree: "Disagree", no_detection: "No detection", not_run: "Not run" };
+const OVERALL_LETTER = { auto_confirm: "CC", auto_reject: "DD", manual_review: "MD", no_detection: "NN", not_run: "–" };
+const OVERALL_TITLE = {
+  auto_confirm: "CC — both models confirm, auto-confirmable",
+  auto_reject: "DD — neither model confirms, auto-rejectable",
+  manual_review: "MD — models disagree with each other, needs manual review",
+  no_detection: "NN — neither model detected anything",
+  not_run: "Not run",
+};
+const FILTER_LABEL = { auto_confirm: "CC Auto-confirm", auto_reject: "DD Auto-reject", manual_review: "MD Manual review", no_detection: "No detection", not_run: "Not run" };
 
 function pill(verdict) {
   const letter = PILL_LETTER[verdict] || "?";
   const title = PILL_TITLE[verdict] || verdict;
   return `<span class="pill ${verdict}" title="${title}">${letter}</span>`;
+}
+
+function overallPill(verdict) {
+  const letter = OVERALL_LETTER[verdict] || "?";
+  const title = OVERALL_TITLE[verdict] || verdict;
+  return `<span class="pill pill-wide ${verdict}" title="${title}">${letter}</span>`;
 }
 
 function escapeHtml(s) {
@@ -686,18 +713,18 @@ function recomputeModelVerdict(v, originalSpecies, threshold) {
   return { ...v, verdict };
 }
 
+function overallBucket(bnVerdict, pcVerdict) {
+  if (bnVerdict === "confirm" && pcVerdict === "confirm") return "auto_confirm";
+  if (bnVerdict === "no_detection" && pcVerdict === "no_detection") return "no_detection";
+  if (bnVerdict === "confirm" || pcVerdict === "confirm") return "manual_review";
+  return "auto_reject";
+}
+
 function withThreshold(r, threshold) {
   const bn = recomputeModelVerdict(r.verify_birdnet_v24, r.species, threshold);
   const pc = recomputeModelVerdict(r.verify_perch_v2, r.species, threshold);
-  const bothRan = bn.verdict !== "not_run" && pc.verdict !== "not_run";
-  const modelsDisagree = bothRan && bn.top_species && pc.top_species && bn.top_species !== pc.top_species;
-  let overall;
-  if (bn.verdict === "not_run") overall = "not_run";
-  else if (modelsDisagree) overall = "disagree";
-  else if (bn.verdict === "confirm" || pc.verdict === "confirm") overall = "confirm";
-  else if (bn.verdict === "no_detection" && pc.verdict === "no_detection") overall = "no_detection";
-  else overall = "disagree";
-  return { ...r, verify_birdnet_v24: bn, verify_perch_v2: pc, overall_verdict: overall, models_disagree: modelsDisagree };
+  const overall = bn.verdict === "not_run" ? "not_run" : overallBucket(bn.verdict, pc.verdict);
+  return { ...r, verify_birdnet_v24: bn, verify_perch_v2: pc, overall_verdict: overall };
 }
 
 function enforceDayScope() {
@@ -724,13 +751,12 @@ function scopedData() {
 function render() {
   const scoped = scopedData();
   updateCounts(scoped);
-  let rows = scoped.filter(r => activeFilter === "all"
-    || (activeFilter === "models_disagree" ? r.models_disagree : r.overall_verdict === activeFilter));
+  let rows = scoped.filter(r => activeFilter === "all" || r.overall_verdict === activeFilter);
 
   rows.sort((a, b) => {
     let va, vb;
     if (sortKey === "species") { va = a.common_name; vb = b.common_name; }
-    else if (sortKey === "overall_verdict") { va = a.overall_verdict + (a.models_disagree ? "_models" : ""); vb = b.overall_verdict + (b.models_disagree ? "_models" : ""); }
+    else if (sortKey === "overall_verdict") { va = a.overall_verdict; vb = b.overall_verdict; }
     else if (sortKey === "bn_verdict") { va = a.verify_birdnet_v24.verdict; vb = b.verify_birdnet_v24.verdict; }
     else if (sortKey === "pc_verdict") { va = a.verify_perch_v2.verdict; vb = b.verify_perch_v2.verdict; }
     else if (sortKey === "model") { va = a.model; vb = b.model; }
@@ -750,7 +776,7 @@ function render() {
     const reviewUrl = `${birdnetgoWebUrl}/ui/detections/${r.detection_id}?tab=review`;
     return `<tr class="${r.clip_exists ? "" : "no-clip"}${altClass}" data-verdict="${r.overall_verdict}">
       <td data-label="Select"><input type="checkbox" class="row-select" data-id="${r.detection_id}" ${selectedIds.has(r.detection_id) ? "checked" : ""}></td>
-      <td data-label="Overall">${pill(r.overall_verdict)}${r.models_disagree ? pill("models_disagree") : ""}</td>
+      <td data-label="Overall">${overallPill(r.overall_verdict)}</td>
       <td class="species-cell" data-label="Species"><a class="species-link" href="${reviewUrl}" target="_blank" rel="noopener"><span class="species-common">${r.common_name}</span>${sciLine}</a></td>
       <td data-label="ID" class="mono">${r.detection_id}</td>
       <td data-label="Date/time" class="mono">${fmtDateTime(r.detected_at_local.slice(0, 16).replace("T", " "))}</td>
@@ -775,6 +801,9 @@ function render() {
     `<span class="nowrap">confirm ≥ ${getConfirmThreshold().toFixed(2)}</span>`;
 
   lastVisibleRows = rows;
+  lastScopedRows = scoped;
+  document.getElementById("auto-btn").disabled =
+    !scoped.some(r => r.overall_verdict === "auto_confirm" || r.overall_verdict === "auto_reject");
   updateSelectionUI(rows);
 }
 
@@ -802,12 +831,11 @@ function updateSelectionUI(visibleRows) {
 }
 
 function updateCounts(scoped) {
-  const counts = { all: scoped.length, confirm: 0, disagree: 0, models_disagree: 0, no_detection: 0, not_run: 0 };
+  const counts = { all: scoped.length, auto_confirm: 0, auto_reject: 0, manual_review: 0, no_detection: 0, not_run: 0 };
   scoped.forEach(r => {
     counts[r.overall_verdict] = (counts[r.overall_verdict] || 0) + 1;
-    if (r.models_disagree) counts.models_disagree++;
   });
-  for (const k of ["all", "confirm", "disagree", "models_disagree", "no_detection", "not_run"]) {
+  for (const k of ["all", "auto_confirm", "auto_reject", "manual_review", "no_detection", "not_run"]) {
     document.getElementById(`count-${k}`).textContent = `(${counts[k] || 0})`;
   }
 }
@@ -934,6 +962,45 @@ function selectedSummary(ids) {
   return names.slice(0, MAX).join("\n") + `\n+${names.length - MAX} more`;
 }
 
+async function postReview(ids, verified) {
+  const resp = await fetch("/api/review", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ detection_ids: ids, verified }),
+  });
+  return resp.json();
+}
+
+async function submitAuto() {
+  const confirmIds = lastScopedRows.filter(r => r.overall_verdict === "auto_confirm").map(r => r.detection_id);
+  const rejectIds = lastScopedRows.filter(r => r.overall_verdict === "auto_reject").map(r => r.detection_id);
+  if (confirmIds.length === 0 && rejectIds.length === 0) return;
+  const message =
+    `Auto-process ${confirmIds.length} CC as Correct and ${rejectIds.length} DD as False positive in BirdNET-Go?\n\n` +
+    selectedSummary([...confirmIds, ...rejectIds]);
+  const confirmed = await customConfirm(message);
+  if (!confirmed) return;
+  const status = document.getElementById("review-status");
+  const autoBtn = document.getElementById("auto-btn");
+  autoBtn.disabled = true;
+  status.textContent = "Auto-processing…";
+  try {
+    const results = [];
+    if (confirmIds.length) results.push(await postReview(confirmIds, "correct"));
+    if (rejectIds.length) results.push(await postReview(rejectIds, "false_positive"));
+    const errors = results.filter(r => r.error);
+    if (errors.length) {
+      status.textContent = "Error: " + errors.map(e => e.error).join("; ");
+    } else {
+      const total = results.reduce((sum, r) => sum + (r.count || 0), 0);
+      status.textContent = `Auto-processed ${total} detection(s) (${confirmIds.length} CC, ${rejectIds.length} DD).`;
+    }
+    await Promise.all([loadCandidates(), loadDays()]);
+  } catch (err) {
+    status.textContent = "Error: " + err;
+  }
+}
+
 async function submitReview(verified, label) {
   const ids = Array.from(selectedIds);
   if (ids.length === 0) return;
@@ -968,6 +1035,7 @@ async function submitReview(verified, label) {
 
 document.getElementById("accept-btn").addEventListener("click", () => submitReview("correct", "Correct"));
 document.getElementById("false-positive-btn").addEventListener("click", () => submitReview("false_positive", "False Positive"));
+document.getElementById("auto-btn").addEventListener("click", submitAuto);
 
 document.getElementById("menu-btn").addEventListener("click", () => {
   const menuPanel = document.getElementById("menu-panel");
