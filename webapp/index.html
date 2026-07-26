@@ -68,6 +68,7 @@
   .subtitle { color: var(--muted); font-size: 0.85rem; margin-bottom: 16px; }
   .subtitle .nowrap { white-space: nowrap; }
   .toolbar {
+    position: relative;
     display: flex;
     gap: 10px;
     align-items: center;
@@ -129,7 +130,6 @@
   }
   tbody tr.row-alt { background: var(--row-alt); }
   tbody tr:hover { background: var(--row-hover); }
-  .compact td, .compact th { padding: 4px 10px; }
   th:nth-child(1), td:nth-child(1),
   th:nth-child(2), td:nth-child(2),
   th:nth-child(3), td:nth-child(3) {
@@ -270,9 +270,6 @@
   .model2-sci-link:hover .model2-sci { filter: brightness(1.15); }
   .model2-sci { display: block; font-style: italic; font-size: 0.78rem; }
   .model2-common { display: block; font-size: 0.78rem; }
-  .compact .species-sci,
-  .compact .model2-sci,
-  .compact .model2-common { display: none; }
   button.xc-toggle {
     display: inline-flex;
     align-items: center;
@@ -515,7 +512,31 @@
 
   .dropdown-panel {
     display: none;
-    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  /* Overlay instead of in-flow: opening it shouldn't push the card list
+     down the page, so it floats above instead of expanding the toolbar. */
+  .dropdown-panel.open {
+    display: flex;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 4px;
+    padding: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: 0 8px 20px -6px rgba(0, 0, 0, 0.3);
+    max-height: 70vh;
+    overflow-y: auto;
+    z-index: 25;
+  }
+  .menu-row { display: flex; align-items: center; gap: 10px; }
+  .menu-settings {
+    display: flex;
     flex-direction: column;
     align-items: stretch;
     gap: 10px;
@@ -523,8 +544,8 @@
     padding-top: 10px;
     border-top: 1px solid var(--border);
   }
-  .dropdown-panel.open { display: flex; }
   #menu-panel button#run-btn, #menu-panel button#cleanup-btn { min-height: 44px; font-size: 1rem; }
+  #menu-panel button#cleanup-btn { align-self: flex-start; }
   #menu-panel input.param { width: 70px; }
   .tabs-row { gap: 8px; }
 
@@ -701,18 +722,6 @@
   <span id="run-status"></span>
 
   <div id="menu-panel" class="dropdown-panel">
-    <label class="force-check"><input type="checkbox" id="all-days"> show all days</label>
-    <button id="run-btn" class="btn-run">Run birda ▶</button>
-    <label class="force-check"><input type="checkbox" id="force"> re-run cached</label>
-    <label class="force-check">rarity min 1&ndash;max <input type="number" id="rare-max" value="5" min="1" step="1" class="param"></label>
-    <label class="force-check">confirm ≥ <input type="number" id="confirm-threshold" value="0.8" min="0" max="1" step="0.01" class="param"></label>
-    <label class="compact"><input type="checkbox" id="compact"> Compact view</label>
-    <button id="cleanup-btn" class="btn-run" title="Remove cache entries and birda result files for detections that have aged out of the 7-day candidate window">🧹 Cleanup</button>
-  </div>
-</div>
-
-<div class="toolbar toolbar-filters">
-  <div id="search-panel" class="dropdown-panel">
     <input type="text" id="search" placeholder="Search species or ID…">
     <div class="tabs-row">
       <div class="tab active" data-filter="all">All <span class="count" id="count-all"></span></div>
@@ -721,6 +730,15 @@
       <div class="tab" data-filter="manual_review">MD Manual review <span class="count" id="count-manual_review"></span></div>
       <div class="tab" data-filter="no_detection">NN No detection <span class="count" id="count-no_detection"></span></div>
       <div class="tab" data-filter="not_run">Not run <span class="count" id="count-not_run"></span></div>
+    </div>
+    <div class="menu-settings">
+      <div class="menu-row">
+        <button id="run-btn" class="btn-run">Run birda ▶</button>
+        <label class="force-check"><input type="checkbox" id="force"> re-run cached</label>
+      </div>
+      <label class="force-check">rarity min 1&ndash;max <input type="number" id="rare-max" value="5" min="1" step="1" class="param"></label>
+      <label class="force-check">confirm ≥ <input type="number" id="confirm-threshold" value="0.8" min="0" max="1" step="0.01" class="param"></label>
+      <button id="cleanup-btn" class="btn-run" title="Remove cache entries and birda result files for detections that have aged out of the 7-day candidate window">🧹 Cleanup</button>
     </div>
   </div>
 </div>
@@ -1031,8 +1049,12 @@ function withThreshold(r, threshold) {
   return { ...r, verify_birdnet_v24: bn, verify_perch_v2: pc, overall_verdict: overall };
 }
 
+function isAllDays() {
+  return document.getElementById("day").value === "__all__";
+}
+
 function enforceDayScope() {
-  if (document.getElementById("all-days").checked) return;
+  if (isAllDays()) return;
   const selectedDay = document.getElementById("day").value;
   selectedIds.forEach(id => {
     const rec = allData.find(r => r.detection_id === id);
@@ -1042,7 +1064,7 @@ function enforceDayScope() {
 
 function scopedData() {
   const q = document.getElementById("search").value.trim().toLowerCase();
-  const showAllDays = document.getElementById("all-days").checked;
+  const showAllDays = isAllDays();
   const selectedDay = document.getElementById("day").value;
   const threshold = getConfirmThreshold();
   return allData.filter(r => {
@@ -1095,7 +1117,7 @@ function render() {
 
   const filterSuffix = activeFilter === "all" ? "" : ` (${escapeHtml(FILTER_LABEL[activeFilter] || activeFilter)})`;
   const rareMax = document.getElementById("rare-max").value;
-  const dayScope = document.getElementById("all-days").checked
+  const dayScope = isAllDays()
     ? "(all days)"
     : `for ${escapeHtml(fmtDate(document.getElementById("day").value))}`;
   document.getElementById("subtitle").innerHTML =
@@ -1151,10 +1173,11 @@ function loadDays(selectDay) {
   return fetch("/api/days?" + getRarityParams()).then(r => r.json()).then(days => {
     const sel = document.getElementById("day");
     const prev = selectDay || sel.value;
-    sel.innerHTML = days.map(d =>
+    sel.innerHTML = `<option value="__all__">All days</option>` + days.map(d =>
       `<option value="${d.day}">${fmtDate(d.day)} — ${d.with_clip} candidate(s), ${d.verified} verified</option>`
     ).join("");
-    if (prev && days.some(d => d.day === prev)) sel.value = prev;
+    if (prev === "__all__" || (prev && days.some(d => d.day === prev))) sel.value = prev;
+    else if (days.length) sel.value = days[0].day;
   });
 }
 
@@ -1176,7 +1199,7 @@ function loadConfig() {
 function runBirda() {
   const day = document.getElementById("day").value;
   const force = document.getElementById("force").checked;
-  if (!day) return;
+  if (!day || day === "__all__") return;
   const buttons = [document.getElementById("run-btn"), document.getElementById("run-btn-main")];
   const status = document.getElementById("run-status");
   buttons.forEach(b => { b.disabled = true; });
@@ -1391,28 +1414,16 @@ document.getElementById("false-positive-btn").addEventListener("click", () => su
 document.getElementById("auto-btn").addEventListener("click", submitAuto);
 
 document.getElementById("menu-btn").addEventListener("click", () => {
-  const menuPanel = document.getElementById("menu-panel");
-  const searchPanel = document.getElementById("search-panel");
-  const willOpen = !menuPanel.classList.contains("open");
-  menuPanel.classList.toggle("open", willOpen);
-  searchPanel.classList.toggle("open", willOpen);
+  document.getElementById("menu-panel").classList.toggle("open");
 });
 
 document.getElementById("search").addEventListener("input", render);
 document.getElementById("day").addEventListener("change", () => {
-  document.getElementById("all-days").checked = false;
-  enforceDayScope();
-  render();
-});
-document.getElementById("all-days").addEventListener("change", () => {
   enforceDayScope();
   render();
 });
 document.getElementById("confirm-threshold").addEventListener("input", render);
 document.getElementById("rare-max").addEventListener("change", () => Promise.all([loadCandidates(), loadDays()]));
-document.getElementById("compact").addEventListener("change", e => {
-  document.querySelector("table").classList.toggle("compact", e.target.checked);
-});
 document.querySelectorAll(".tab").forEach(tab => {
   tab.addEventListener("click", () => {
     document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
