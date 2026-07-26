@@ -208,6 +208,10 @@
   }
   .btn-run:disabled { opacity: 0.6; cursor: default; }
   .btn-run.force { background: var(--disagree-fg); }
+  /* Desktop already shows "Run birda" inline (menu-panel unwraps via
+     display:contents there); this toolbar shortcut is mobile-only, where
+     the menu-panel is collapsed behind the hamburger button. */
+  #run-btn-main { display: none; }
   button#refresh-btn {
     padding: 8px 16px;
     border: none;
@@ -504,6 +508,7 @@
     .toolbar-controls select#day { flex: 1; min-width: 0; }
 
     button.icon-btn { display: flex; }
+    #run-btn-main { display: inline-flex; }
 
     .dropdown-panel {
       display: none;
@@ -658,6 +663,10 @@
     }
     #player-bar audio { flex-basis: 100%; }
     #player-accept-btn, #player-false-positive-btn { display: none; }
+    #player-label { padding-right: 26px; }
+    #player-close-btn { position: absolute; top: 8px; right: 8px; }
+    .fx-gain-control { flex-basis: 100%; }
+    .fx-gain-control input[type=range] { flex: 1; width: auto; }
     button.spec-thumb-btn {
       width: 30px;
       height: 30px;
@@ -679,6 +688,7 @@
   <button id="menu-btn" class="icon-btn" type="button" title="Menu" aria-label="Menu">☰</button>
   <select id="day"></select>
   <button id="refresh-btn">↻ Refresh</button>
+  <button id="run-btn-main" class="btn-run" title="Run birda for the selected day">▶ Birda</button>
   <span id="run-status"></span>
 
   <div id="menu-panel" class="dropdown-panel">
@@ -751,7 +761,7 @@
   </div>
   <div class="player-row-controls">
     <div class="player-fx">
-      <label class="fx-control" title="Boost or attenuate playback volume">Gain
+      <label class="fx-control fx-gain-control" title="Boost or attenuate playback volume">Gain
         <input type="range" id="fx-gain" min="-12" max="24" step="1" value="0">
         <span id="fx-gain-label">0dB</span>
       </label>
@@ -1158,7 +1168,7 @@ function runBirda() {
   const day = document.getElementById("day").value;
   const force = document.getElementById("force").checked;
   if (!day) return;
-  const buttons = [document.getElementById("run-btn")];
+  const buttons = [document.getElementById("run-btn"), document.getElementById("run-btn-main")];
   const status = document.getElementById("run-status");
   buttons.forEach(b => { b.disabled = true; });
   status.textContent = `Running birda on ${day}…`;
@@ -1205,6 +1215,7 @@ function runCleanup() {
 
 document.getElementById("cleanup-btn").addEventListener("click", runCleanup);
 document.getElementById("run-btn").addEventListener("click", runBirda);
+document.getElementById("run-btn-main").addEventListener("click", runBirda);
 
 document.getElementById("refresh-btn").addEventListener("click", () => {
   const btn = document.getElementById("refresh-btn");
