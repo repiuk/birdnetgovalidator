@@ -493,6 +493,10 @@
     gap: 10px;
     flex-wrap: wrap;
   }
+  /* Opening the player auto-selects the playing row, which would otherwise
+     always pop this "N selected" row up (disabled/greyed) behind the
+     player bar. Not useful while playerLocked, so just hide it. */
+  body.player-active #toolbar-actions-info { display: none; }
   .toolbar-actions-buttons {
     display: flex;
     align-items: center;
@@ -1435,6 +1439,7 @@ function closePlayer() {
   currentClipName = null;
   closeSpectrogramOverlay();
   document.getElementById("player-bar").classList.remove("active");
+  document.body.classList.remove("player-active");
   document.querySelectorAll("button.play").forEach(b => b.classList.remove("playing"));
   document.getElementById("fx-gain").value = 0;
   document.getElementById("fx-gain-label").textContent = "0dB";
@@ -1468,6 +1473,7 @@ document.getElementById("rows").addEventListener("click", e => {
   document.getElementById("player-spectrogram").src = spectrogramUrl(btn.dataset.id, "sm", true);
   document.getElementById("player-spectrogram-btn").hidden = false;
   document.getElementById("player-bar").classList.add("active");
+  document.body.classList.add("player-active");
   ensureAudioGraph();
   if (audioCtx.state === "suspended") audioCtx.resume();
   audio.play();
