@@ -499,186 +499,191 @@
     gap: 10px;
   }
 
-  @media (max-width: 640px) {
-    body { padding: 12px; padding-bottom: 108px; }
-    h1 { font-size: 1.15rem; }
-    .subtitle { font-size: 0.78rem; }
+  body { padding: 12px; padding-bottom: 108px; }
+  h1 { font-size: 1.15rem; }
+  .subtitle { font-size: 0.78rem; }
 
-    .toolbar { gap: 8px; margin-bottom: 8px; }
-    .toolbar-controls select#day { flex: 1; min-width: 0; }
+  .toolbar { gap: 8px; margin-bottom: 8px; }
+  .toolbar-controls select#day { flex: 1; min-width: 0; }
 
-    button.icon-btn { display: flex; }
-    #run-btn-main { display: inline-flex; }
+  button.icon-btn { display: flex; }
+  #run-btn-main { display: inline-flex; }
 
-    .dropdown-panel {
-      display: none;
-      width: 100%;
-      flex-direction: column;
-      align-items: stretch;
-      gap: 10px;
-      margin-top: 4px;
-      padding-top: 10px;
-      border-top: 1px solid var(--border);
-    }
-    .dropdown-panel.open { display: flex; }
-    #menu-panel button#run-btn, #menu-panel button#cleanup-btn { min-height: 44px; font-size: 1rem; }
-    #menu-panel input.param { width: 70px; }
-    .tabs-row { gap: 8px; }
-
-    .toolbar-actions {
-      position: fixed;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      z-index: 20;
-      flex-direction: column;
-      align-items: stretch;
-      gap: 6px;
-      margin: 0;
-      background: var(--surface);
-      border-top: 1px solid var(--border);
-      padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
-      box-shadow: 0 -2px 8px -2px rgba(0, 0, 0, 0.25);
-    }
-    .toolbar-actions-info { justify-content: space-between; font-size: 0.78rem; }
-    .toolbar-actions-buttons button.bulk-action {
-      flex: 1;
-      min-height: 40px;
-      font-size: 0.9rem;
-      padding: 8px 10px;
-    }
-    label.select-all-mobile, #selection-count { display: none; }
-    .toolbar-actions-info.has-selection label.select-all-mobile { display: flex; }
-    .toolbar-actions-info.has-selection #selection-count { display: inline; }
-
-    .table-wrap { border: none; overflow-x: visible; }
-    table { display: block; min-width: 0; width: 100%; }
-    tbody { display: block; }
-    thead { display: none; }
-
-    tbody tr {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      column-gap: 10px;
-      row-gap: 3px;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      margin-bottom: 10px;
-      padding: 10px 12px;
-      background: var(--surface) !important;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-    }
-    tbody tr[data-verdict="auto_confirm"] { border-left: 4px solid var(--confirm-fg); background: var(--confirm-bg) !important; }
-    tbody tr[data-verdict="auto_reject"] { border-left: 4px solid var(--disagree-fg); background: var(--disagree-bg) !important; }
-    tbody tr[data-verdict="manual_review"] { border-left: 4px solid var(--manual-fg); }
-    tbody tr[data-verdict="no_detection"] { border-left: 4px solid var(--nodet-fg); }
-    tbody tr[data-verdict="not_run"] { border-left: 4px solid var(--border); }
-
-    tbody tr.xc-row {
-      display: none;
-      border: none;
-      box-shadow: none;
-      padding: 0;
-      margin-top: -10px;
-      margin-bottom: 10px;
-      background: transparent !important;
-    }
-    tbody tr.xc-row:has(.xc-panel.open) { display: block; }
-    tr.xc-row td { padding: 0 !important; }
-    tr.xc-row .xc-panel { margin: 0; }
-
-    table td {
-      display: block;
-      border-bottom: none;
-      padding: 3px 0 !important;
-      white-space: normal;
-      position: static !important;
-      background: transparent !important;
-      box-shadow: none !important;
-      width: auto !important;
-      min-width: 0 !important;
-      max-width: none !important;
-      left: auto !important;
-    }
-
-    .model2-sci-link { pointer-events: none; }
-    .model2-sci-link .model2-sci { color: var(--muted); text-decoration: none; }
-
-    /* card header: checkbox, verdict pill, species (grows, absorbing slack), ID, play button */
-    td:nth-child(1) { order: 1; }
-    td:nth-child(2) { order: 2; }
-    td:nth-child(3) { order: 3; flex: 1 1 140px; }
-    td:nth-child(4) { order: 4; flex: 0 0 auto; font-size: 0.75rem; color: var(--muted); }
-    td:nth-child(10) { order: 5; }
-    td:nth-child(1) input[type=checkbox] { width: 20px; height: 20px; }
-
-    /* detail line: Date/time + Orig. model + Orig. conf. share one row */
-    td:nth-child(5), td:nth-child(6), td:nth-child(7),
-    td:nth-child(8), td:nth-child(9) {
-      font-size: 0.8rem;
-      color: var(--muted);
-    }
-    td:nth-child(5) { flex: 1 1 auto; order: 6; }
-    td:nth-child(6), td:nth-child(7) { flex: 0 0 auto; }
-    td:nth-child(6) { order: 7; }
-    td:nth-child(7) { order: 8; }
-    td:nth-child(8), td:nth-child(9) { flex-basis: calc(50% - 5px); }
-    td:nth-child(8) { order: 9; }
-    td:nth-child(9) { order: 10; }
-
-    .model2-cell {
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      background: var(--bg);
-      padding: 8px !important;
-    }
-
-    td[data-label]::before {
-      content: attr(data-label) ": ";
-      font-weight: 600;
-      color: var(--fg);
-    }
-    td:nth-child(1)::before, td:nth-child(2)::before,
-    td:nth-child(3)::before, td:nth-child(6)::before,
-    td:nth-child(7)::before, td:nth-child(10)::before {
-      content: none;
-    }
-    td:nth-child(4)::before {
-      content: "#";
-      font-weight: 400;
-      color: var(--muted);
-    }
-
-    #player-bar {
-      position: fixed;
-      left: 0;
-      right: 0;
-      bottom: 84px;
-      z-index: 15;
-      margin: 0;
-      border-left: none;
-      border-right: none;
-      border-radius: 0;
-    }
-    #player-bar audio { flex-basis: 100%; }
-    #player-accept-btn, #player-false-positive-btn { display: none; }
-    #player-label { padding-right: 26px; }
-    #player-close-btn { position: absolute; top: 8px; right: 8px; }
-    .fx-gain-control { flex-basis: 100%; }
-    .fx-gain-control input[type=range] { flex: 1; width: auto; }
-    button.spec-thumb-btn {
-      width: 30px;
-      height: 30px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-    }
-    #player-spectrogram { display: none; }
-    .spec-thumb-icon { display: block; }
+  .dropdown-panel {
+    display: none;
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    margin-top: 4px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
   }
+  .dropdown-panel.open { display: flex; }
+  #menu-panel button#run-btn, #menu-panel button#cleanup-btn { min-height: 44px; font-size: 1rem; }
+  #menu-panel input.param { width: 70px; }
+  .tabs-row { gap: 8px; }
+
+  .toolbar-actions {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    margin: 0;
+    z-index: 20;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+    box-shadow: 0 -2px 8px -2px rgba(0, 0, 0, 0.25);
+  }
+  .toolbar-actions-info { justify-content: space-between; font-size: 0.78rem; }
+  .toolbar-actions-buttons { justify-content: center; }
+  .toolbar-actions-buttons button.bulk-action {
+    flex: 0 0 auto;
+    min-height: 40px;
+    font-size: 0.9rem;
+    padding: 8px 24px;
+  }
+  label.select-all-mobile, #selection-count { display: none; }
+  .toolbar-actions-info.has-selection label.select-all-mobile { display: flex; }
+  .toolbar-actions-info.has-selection #selection-count { display: inline; }
+
+  .table-wrap { border: none; overflow-x: visible; }
+  table { display: block; min-width: 0; width: 100%; }
+  /* Cards wrap into as many ~420px columns as the window fits, instead of
+     one column stretched to the full window width (which is what let the
+     row-internal flex-wrap fix above get overwhelmed on very wide windows). */
+  tbody { display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; column-gap: 10px; row-gap: 10px; }
+  thead { display: none; }
+
+  tbody tr {
+    display: flex;
+    flex: 0 1 420px;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 10px;
+    row-gap: 3px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    background: var(--surface) !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  }
+  tbody tr[data-verdict="auto_confirm"] { border-left: 4px solid var(--confirm-fg); background: var(--confirm-bg) !important; }
+  tbody tr[data-verdict="auto_reject"] { border-left: 4px solid var(--disagree-fg); background: var(--disagree-bg) !important; }
+  tbody tr[data-verdict="manual_review"] { border-left: 4px solid var(--manual-fg); }
+  tbody tr[data-verdict="no_detection"] { border-left: 4px solid var(--nodet-fg); }
+  tbody tr[data-verdict="not_run"] { border-left: 4px solid var(--border); }
+
+  tbody tr.xc-row {
+    display: none;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    background: transparent !important;
+  }
+  /* flex-basis:100% pins the open panel to its own full-width line right
+     after its card, instead of taking a slot next to another card. */
+  tbody tr.xc-row:has(.xc-panel.open) { display: block; flex-basis: 100%; }
+  tr.xc-row td { padding: 0 !important; }
+  tr.xc-row .xc-panel { margin: 0; }
+
+  table td {
+    display: block;
+    border-bottom: none;
+    padding: 3px 0 !important;
+    white-space: normal;
+    position: static !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    left: auto !important;
+  }
+
+  .model2-sci-link { pointer-events: none; }
+  .model2-sci-link .model2-sci { color: var(--muted); text-decoration: none; }
+
+  /* card header: checkbox, verdict pill, species (grows, absorbing slack), ID, play button */
+  td:nth-child(1) { order: 1; }
+  td:nth-child(2) { order: 2; }
+  td:nth-child(3) { order: 3; flex: 1 1 140px; }
+  td:nth-child(4) { order: 4; flex: 0 0 auto; font-size: 0.75rem; color: var(--muted); }
+  td:nth-child(10) { order: 5; }
+  td:nth-child(1) input[type=checkbox] { width: 20px; height: 20px; }
+
+  /* detail line: Date/time + Orig. model + Orig. conf. share one row */
+  td:nth-child(5), td:nth-child(6), td:nth-child(7),
+  td:nth-child(8), td:nth-child(9) {
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+  /* Large % basis (not just flex-grow) so the wrap decision — which uses
+     each item's basis, not its final grown size — always treats the
+     header row as full and pushes this onto its own line, at any width. */
+  td:nth-child(5) { flex: 1 1 60%; order: 6; }
+  td:nth-child(6), td:nth-child(7) { flex: 0 0 auto; }
+  td:nth-child(6) { order: 7; }
+  td:nth-child(7) { order: 8; }
+  td:nth-child(8), td:nth-child(9) { flex-basis: calc(50% - 5px); }
+  td:nth-child(8) { order: 9; }
+  td:nth-child(9) { order: 10; }
+
+  .model2-cell {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    padding: 8px !important;
+  }
+
+  td[data-label]::before {
+    content: attr(data-label) ": ";
+    font-weight: 600;
+    color: var(--fg);
+  }
+  td:nth-child(1)::before, td:nth-child(2)::before,
+  td:nth-child(3)::before, td:nth-child(6)::before,
+  td:nth-child(7)::before, td:nth-child(10)::before {
+    content: none;
+  }
+  td:nth-child(4)::before {
+    content: "#";
+    font-weight: 400;
+    color: var(--muted);
+  }
+
+  #player-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 84px;
+    margin: 0;
+    z-index: 15;
+    border-left: none;
+    border-right: none;
+    border-radius: 0;
+  }
+  #player-bar audio { flex-basis: 100%; }
+  #player-accept-btn, #player-false-positive-btn { display: none; }
+  #player-label { padding-right: 26px; }
+  #player-close-btn { position: absolute; top: 8px; right: 8px; }
+  .fx-gain-control { flex-basis: 100%; }
+  .fx-gain-control input[type=range] { flex: 1; width: auto; }
+  button.spec-thumb-btn {
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+  #player-spectrogram { display: none; }
+  .spec-thumb-icon { display: block; }
 </style>
 
 <h1>BirdNET-Go Validation Candidates</h1>
