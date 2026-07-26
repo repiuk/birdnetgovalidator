@@ -20,7 +20,11 @@ import config
 from candidate_finder import connect_ro
 
 BASE_URL = config.BIRDNETGO_API_URL
-MARKER = "[birda-validator]"
+MARKER = "[validator]"
+# Comments posted before 2026-07-26 used this longer marker. Kept only for
+# matching (has_existing_comment/get_marked_detection_ids) so old entries are
+# still recognized as ours; all new comments use MARKER.
+LEGACY_MARKER = "[birda-validator]"
 
 VERDICT_LABEL = {
     "auto_confirm": "CC auto-confirm",
@@ -53,8 +57,8 @@ def has_existing_comment(detection_id):
     try:
         cur = con.cursor()
         cur.execute(
-            "SELECT 1 FROM detection_comments WHERE detection_id = ? AND entry LIKE ? LIMIT 1",
-            (detection_id, MARKER + "%"),
+            "SELECT 1 FROM detection_comments WHERE detection_id = ? AND (entry LIKE ? OR entry LIKE ?) LIMIT 1",
+            (detection_id, MARKER + "%", LEGACY_MARKER + "%"),
         )
         return cur.fetchone() is not None
     finally:
@@ -62,15 +66,16 @@ def has_existing_comment(detection_id):
 
 
 def get_marked_detection_ids():
-    """All detection ids that currently have a [birda-validator] comment in
-    BirdNET-Go — live truth, so it reflects reality regardless of when or how
-    many times verify_candidates has run for a given detection."""
+    """All detection ids that currently have a [validator] (or legacy
+    [birda-validator]) comment in BirdNET-Go — live truth, so it reflects
+    reality regardless of when or how many times verify_candidates has run
+    for a given detection."""
     con = connect_ro()
     try:
         cur = con.cursor()
         cur.execute(
-            "SELECT DISTINCT detection_id FROM detection_comments WHERE entry LIKE ?",
-            (MARKER + "%",),
+            "SELECT DISTINCT detection_id FROM detection_comments WHERE entry LIKE ? OR entry LIKE ?",
+            (MARKER + "%", LEGACY_MARKER + "%"),
         )
         return {row[0] for row in cur.fetchall()}
     finally:
@@ -115,6 +120,34 @@ def set_verification(detection_ids, verified):
         "/api/v2/detections/batch/review",
         {"ids": [str(i) for i in detection_ids], "verified": verified},
     )
+
+
+def set_lock(detection_ids, locked):
+    """
+    Locks or unlocks one or more detections in BirdNET-Go (the same toggle as
+    its own GUI, which also happens to exempt the clip from disk-usage-based
+    purging). Independent of review status -- a locked detection can stay
+    unverified indefinitely, which is what makes it usable as a "hold for a
+    second look" signal from the webapp.
+    """
+    return _csrf_post(
+        "/api/v2/detections/batch/lock",
+        {"ids": [str(i) for i in detection_ids], "locked": bool(locked)},
+    )
+
+
+def post_lock_comment(detection_id, locked, source):
+    """
+    Logs a lock/unlock action taken via the webapp. Always posts (like
+    post_review_decision_comment) -- this is also how a "held for review"
+    detection gets distinguished from one locked directly in BirdNET-Go's own
+    GUI for an unrelated reason: BirdNET-Go's detection_locks table has no
+    reason/source column, so this marker comment is the only record of which
+    locks came from here.
+    """
+    action = "Locked" if locked else "Unlocked"
+    comment_text = f"{MARKER} {action} via webapp ({source})"
+    _post_comment(detection_id, comment_text)
 
 
 def post_verification_comment(detection_id, candidate, rec):

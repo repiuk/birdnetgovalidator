@@ -27,6 +27,8 @@
     --reject-fg: #ffffff;
     --auto-bg: #3c6e78;
     --auto-fg: #ffffff;
+    --lock-bg: #8a6d1f;
+    --lock-fg: #ffffff;
     --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", monospace;
   }
   @media (prefers-color-scheme: dark) {
@@ -54,6 +56,8 @@
       --auto-fg: #0a1414;
       --reject-bg: #b6503a;
       --reject-fg: #fdf1ec;
+      --lock-bg: #c9a227;
+      --lock-fg: #0a1414;
     }
   }
   * { box-sizing: border-box; }
@@ -188,6 +192,38 @@
   .pill.no_detection { background: var(--nodet-bg); color: var(--nodet-fg); }
   .pill.not_run { background: transparent; color: var(--muted); font-weight: 400; }
   .pill.pill-wide { width: auto; min-width: 24px; padding: 0 5px; border-radius: 9px; }
+
+  .locked-list {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 10px;
+  }
+  .locked-card {
+    flex: 1 1 340px;
+    max-width: 420px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    padding: 10px 12px;
+  }
+  .locked-card.no-clip { opacity: 0.6; }
+  .locked-card-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .locked-card-species { font-weight: 600; }
+  .locked-card-sci { color: var(--muted); font-size: 0.78rem; margin-left: 6px; }
+  .locked-card-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 0.78rem; color: var(--muted); }
+  .badge { display: inline-flex; align-items: center; border-radius: 9px; padding: 1px 7px; font-size: 0.72rem; font-weight: 600; }
+  .badge.origin-go { background: var(--manual-bg); color: var(--manual-fg); }
+  .badge.origin-validator { background: var(--lock-bg); color: var(--lock-fg); }
+  .badge.status-accept { background: var(--confirm-bg); color: var(--confirm-fg); }
+  .badge.status-false { background: var(--disagree-bg); color: var(--disagree-fg); }
+  .badge.status-open { background: var(--nodet-bg); color: var(--nodet-fg); }
+  .locked-card-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+  .locked-card-actions button { padding: 4px 10px; font-size: 0.82rem; min-height: 32px; }
   select#day {
     padding: 8px 12px;
     border: 1px solid var(--border);
@@ -237,6 +273,7 @@
   .btn-accept { background: var(--accept-bg); color: var(--accept-fg); }
   .btn-reject { background: var(--reject-bg); color: var(--reject-fg); }
   .btn-auto { background: var(--auto-bg); color: var(--auto-fg); }
+  .btn-lock { background: var(--lock-bg); color: var(--lock-fg); }
   #selection-count { font-size: 0.85rem; color: var(--muted); }
   input.param {
     width: 56px;
@@ -257,7 +294,7 @@
   .species-common { display: block; }
   .species-sci { display: block; font-style: italic; color: var(--muted); font-size: 0.78rem; }
   .sub { color: var(--muted); font-size: 0.78rem; }
-  td.mono, .model2-cell .sub {
+  td.mono, .model2-cell .sub, .mono {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 0.8rem;
@@ -729,6 +766,7 @@
   <select id="day"></select>
   <button id="refresh-btn">↻ Refresh</button>
   <button id="run-btn-main" class="btn-run" title="Run birda for the selected day">▶ Birda</button>
+  <button id="locked-view-btn" class="btn-run" title="Browse all locked detections, regardless of age">🔒 Locked</button>
   <span id="run-status"></span>
 
   <div id="menu-panel" class="dropdown-panel">
@@ -753,37 +791,53 @@
   </div>
 </div>
 
-<div class="toolbar toolbar-actions">
-  <div class="toolbar-actions-info" id="toolbar-actions-info">
-    <label class="compact select-all-mobile"><input type="checkbox" id="select-all-mobile" title="Select all visible rows"> Select all</label>
-    <span id="selection-count">No detections selected</span>
-    <span id="review-status" class="sub"></span>
+<div id="candidates-view">
+  <div class="toolbar toolbar-actions">
+    <div class="toolbar-actions-info" id="toolbar-actions-info">
+      <label class="compact select-all-mobile"><input type="checkbox" id="select-all-mobile" title="Select all visible rows"> Select all</label>
+      <span id="selection-count">No detections selected</span>
+      <span id="review-status" class="sub"></span>
+    </div>
+    <div class="toolbar-actions-buttons">
+      <button id="auto-btn" class="bulk-action btn-auto" disabled title="Write back all CC (auto-confirm) and DD (auto-reject) rows currently in the list">⚡ Auto</button>
+      <button id="lock-btn" class="bulk-action btn-lock" disabled title="Lock in BirdNET-Go for a later second look, independent of Accept/False">🔒 Hold</button>
+      <button id="accept-btn" class="bulk-action btn-accept" disabled>✓ Accept</button>
+      <button id="false-positive-btn" class="bulk-action btn-reject" disabled>✕ False</button>
+    </div>
   </div>
-  <div class="toolbar-actions-buttons">
-    <button id="auto-btn" class="bulk-action btn-auto" disabled title="Write back all CC (auto-confirm) and DD (auto-reject) rows currently in the list">⚡ Auto</button>
-    <button id="accept-btn" class="bulk-action btn-accept" disabled>✓ Accept</button>
-    <button id="false-positive-btn" class="bulk-action btn-reject" disabled>✕ False</button>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th><input type="checkbox" id="select-all" title="Select all visible rows"></th>
+          <th data-sort="overall_verdict">Overall</th>
+          <th data-sort="species">Species</th>
+          <th data-sort="detection_id">ID</th>
+          <th data-sort="detected_at_local">Date/time</th>
+          <th data-sort="model">Orig. model</th>
+          <th data-sort="confidence">Orig. conf.</th>
+          <th data-sort="bn_verdict">BirdNET (2nd)</th>
+          <th data-sort="pc_verdict">Perch (2nd)</th>
+          <th>Play</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
   </div>
 </div>
 
-<div class="table-wrap">
-  <table>
-    <thead>
-      <tr>
-        <th><input type="checkbox" id="select-all" title="Select all visible rows"></th>
-        <th data-sort="overall_verdict">Overall</th>
-        <th data-sort="species">Species</th>
-        <th data-sort="detection_id">ID</th>
-        <th data-sort="detected_at_local">Date/time</th>
-        <th data-sort="model">Orig. model</th>
-        <th data-sort="confidence">Orig. conf.</th>
-        <th data-sort="bn_verdict">BirdNET (2nd)</th>
-        <th data-sort="pc_verdict">Perch (2nd)</th>
-        <th>Play</th>
-      </tr>
-    </thead>
-    <tbody id="rows"></tbody>
-  </table>
+<div id="locked-view" hidden>
+  <div class="toolbar tabs-row" id="locked-tabs">
+    <div class="tab active" data-lockfilter="all">All <span class="count" id="lcount-all"></span></div>
+    <div class="tab" data-lockfilter="locked_go">Locked (Go) <span class="count" id="lcount-locked_go"></span></div>
+    <div class="tab" data-lockfilter="locked_validator">Locked (Validator) <span class="count" id="lcount-locked_validator"></span></div>
+    <div class="tab" data-lockfilter="verified_accept">Verified Accept <span class="count" id="lcount-verified_accept"></span></div>
+    <div class="tab" data-lockfilter="verified_false">Verified False <span class="count" id="lcount-verified_false"></span></div>
+  </div>
+  <div class="subtitle" id="locked-subtitle"></div>
+  <div class="subtitle sub" id="locked-status"></div>
+  <div class="locked-list" id="locked-rows"></div>
 </div>
 
 <div id="player-bar">
@@ -824,6 +878,7 @@
       </label>
     </div>
     <div class="player-row-actions">
+      <button id="player-lock-btn" class="bulk-action btn-lock" disabled title="Lock in BirdNET-Go for a later second look, independent of Accept/False">🔒 Hold</button>
       <button id="player-accept-btn" class="bulk-action btn-accept" disabled>✓ Accept</button>
       <button id="player-false-positive-btn" class="bulk-action btn-reject" disabled>✕ False</button>
     </div>
@@ -858,6 +913,9 @@ let lastScopedRows = [];
 let playerLocked = false;
 let birdnetgoWebUrl = "";
 let currentPlayerDetectionId = null;
+let viewMode = "candidates"; // "candidates" | "locked"
+let lockedData = [];
+let lockedActiveFilter = "all";
 
 function openSpectrogramOverlay() {
   if (!currentPlayerDetectionId) return;
@@ -1257,8 +1315,10 @@ function updateSelectionUI(visibleRows) {
   document.getElementById("toolbar-actions-info").classList.toggle("has-selection", count > 0);
   document.getElementById("accept-btn").disabled = count === 0;
   document.getElementById("false-positive-btn").disabled = count === 0;
+  document.getElementById("lock-btn").disabled = count === 0;
   document.getElementById("player-accept-btn").disabled = count === 0;
   document.getElementById("player-false-positive-btn").disabled = count === 0;
+  document.getElementById("player-lock-btn").disabled = count === 0;
 
   const selectAll = document.getElementById("select-all");
   const selectAllMobile = document.getElementById("select-all-mobile");
@@ -1312,6 +1372,120 @@ function loadConfig() {
     birdnetgoWebUrl = cfg.birdnetgo_web_url || "";
   });
 }
+
+// Locked view: browses every currently-locked detection regardless of age
+// (locking is meant to keep a detection around for a later second look, so
+// it's explicitly not limited to the normal 7-day candidate window).
+function lockedMatchesFilter(r, filter) {
+  if (filter === "all") return true;
+  if (filter === "locked_go") return !r.locked_via_validator;
+  if (filter === "locked_validator") return r.locked_via_validator;
+  if (filter === "verified_accept") return r.verified === "correct";
+  if (filter === "verified_false") return r.verified === "false_positive";
+  return true;
+}
+
+function updateLockedCounts() {
+  const counts = { all: lockedData.length, locked_go: 0, locked_validator: 0, verified_accept: 0, verified_false: 0 };
+  lockedData.forEach(r => {
+    if (!r.locked_via_validator) counts.locked_go++;
+    if (r.locked_via_validator) counts.locked_validator++;
+    if (r.verified === "correct") counts.verified_accept++;
+    if (r.verified === "false_positive") counts.verified_false++;
+  });
+  for (const k of Object.keys(counts)) {
+    document.getElementById(`lcount-${k}`).textContent = `(${counts[k]})`;
+  }
+}
+
+function statusBadge(verified) {
+  if (verified === "correct") return `<span class="badge status-accept">Verified Accept</span>`;
+  if (verified === "false_positive") return `<span class="badge status-false">Verified False</span>`;
+  return `<span class="badge status-open">Unverified</span>`;
+}
+
+function originBadge(lockedViaValidator) {
+  return lockedViaValidator
+    ? `<span class="badge origin-validator">Locked (Validator)</span>`
+    : `<span class="badge origin-go">Locked (Go)</span>`;
+}
+
+function renderLocked() {
+  updateLockedCounts();
+  const rows = lockedData.filter(r => lockedMatchesFilter(r, lockedActiveFilter));
+  const container = document.getElementById("locked-rows");
+  container.innerHTML = rows.map(r => {
+    const clipAttr = r.clip_name
+      ? `data-clip="${r.clip_name}" data-label="${r.common_name} #${r.detection_id}" data-id="${r.detection_id}" data-begin="${r.begin_time ?? ""}" data-end="${r.end_time ?? ""}" data-species="${escapeHtml(r.common_name)}" data-conf="${r.confidence ?? ""}"`
+      : "";
+    const sciLine = r.common_name !== r.species ? `<span class="locked-card-sci">${r.species}</span>` : "";
+    const reviewUrl = `${birdnetgoWebUrl}/ui/detections/${r.detection_id}?tab=review`;
+    return `<div class="locked-card${r.clip_exists ? "" : " no-clip"}" data-id="${r.detection_id}">
+      <div class="locked-card-top">
+        <span><a class="species-link" href="${reviewUrl}" target="_blank" rel="noopener"><span class="species-common locked-card-species">${r.common_name}</span></a>${sciLine}</span>
+        <span class="mono sub">#${r.detection_id}</span>
+      </div>
+      <div class="locked-card-meta">
+        <span>${fmtDateTime(r.detected_at_local.slice(0, 16).replace("T", " "))}</span>
+        <span class="mono">conf ${fmtConf(r.confidence)}</span>
+        ${originBadge(r.locked_via_validator)}
+        ${statusBadge(r.verified)}
+      </div>
+      <div class="locked-card-actions">
+        ${r.clip_exists ? `<button class="play" ${clipAttr}>▶ Play</button>` : ""}
+        <button class="bulk-action btn-lock locked-unlock-btn" data-id="${r.detection_id}">🔓 Unlock</button>
+        <button class="bulk-action btn-accept locked-accept-btn" data-id="${r.detection_id}">✓ Accept</button>
+        <button class="bulk-action btn-reject locked-false-btn" data-id="${r.detection_id}">✕ False</button>
+      </div>
+    </div>`;
+  }).join("");
+
+  document.getElementById("locked-subtitle").textContent =
+    `Showing ${rows.length} of ${lockedData.length} locked detection(s)`;
+}
+
+function loadLocked() {
+  return fetch("/api/locked").then(r => r.json()).then(data => {
+    lockedData = data;
+    renderLocked();
+  });
+}
+
+document.querySelectorAll("#locked-tabs .tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll("#locked-tabs .tab").forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
+    lockedActiveFilter = tab.dataset.lockfilter;
+    renderLocked();
+  });
+});
+
+document.getElementById("locked-rows").addEventListener("click", e => {
+  const id = e.target.closest("button")?.dataset.id;
+  if (!id) return;
+  if (e.target.closest(".locked-unlock-btn")) submitLock(false, [Number(id)], true);
+  else if (e.target.closest(".locked-accept-btn")) submitReview("correct", "Correct", [Number(id)]);
+  else if (e.target.closest(".locked-false-btn")) submitReview("false_positive", "False Positive", [Number(id)]);
+});
+
+function setViewMode(mode) {
+  viewMode = mode;
+  const btn = document.getElementById("locked-view-btn");
+  if (mode === "locked") {
+    document.getElementById("candidates-view").hidden = true;
+    document.getElementById("locked-view").hidden = false;
+    btn.textContent = "← Candidates";
+    if (lockedData.length === 0) loadLocked(); else renderLocked();
+  } else {
+    document.getElementById("candidates-view").hidden = false;
+    document.getElementById("locked-view").hidden = true;
+    btn.textContent = "🔒 Locked";
+  }
+}
+
+document.getElementById("locked-view-btn").addEventListener("click", () => {
+  setViewMode(viewMode === "locked" ? "candidates" : "locked");
+});
 
 function runBirda() {
   const day = document.getElementById("day").value;
@@ -1424,7 +1598,7 @@ function customConfirm(message) {
 function selectedSummary(ids) {
   const MAX = 8;
   const names = ids.map(id => {
-    const rec = allData.find(r => r.detection_id === id);
+    const rec = allData.find(r => r.detection_id === id) || lockedData.find(r => r.detection_id === id);
     return rec ? `${rec.common_name} #${id}` : `#${id}`;
   });
   if (names.length <= MAX) return names.join("\n");
@@ -1494,18 +1668,25 @@ async function submitAutoRow(id, verdict, btn) {
   }
 }
 
-async function submitReview(verified, label) {
-  const ids = Array.from(selectedIds);
+function refreshActiveView() {
+  return viewMode === "locked" ? loadLocked() : Promise.all([loadCandidates(), loadDays()]);
+}
+
+function setActionStatus(msg) {
+  document.getElementById(viewMode === "locked" ? "locked-status" : "review-status").textContent = msg;
+}
+
+async function submitReview(verified, label, idsOverride) {
+  const ids = idsOverride || Array.from(selectedIds);
   if (ids.length === 0) return;
   const message = `Mark ${ids.length} detection(s) as ${label} in BirdNET-Go?\n\n${selectedSummary(ids)}`;
   const confirmed = await customConfirm(message);
   if (!confirmed) return;
-  const status = document.getElementById("review-status");
   document.getElementById("accept-btn").disabled = true;
   document.getElementById("false-positive-btn").disabled = true;
   document.getElementById("player-accept-btn").disabled = true;
   document.getElementById("player-false-positive-btn").disabled = true;
-  status.textContent = "Saving…";
+  setActionStatus("Saving…");
   fetch("/api/review", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -1514,21 +1695,56 @@ async function submitReview(verified, label) {
     .then(r => r.json())
     .then(resp => {
       if (resp.error) {
-        status.textContent = "Error: " + resp.error;
+        setActionStatus("Error: " + resp.error);
         return;
       }
-      status.textContent = `Marked ${resp.count} as ${label}.`;
+      setActionStatus(`Marked ${resp.count} as ${label}.`);
       selectedIds.clear();
       closePlayer();
-      return Promise.all([loadCandidates(), loadDays()]);
+      return refreshActiveView();
     })
-    .catch(err => { status.textContent = "Error: " + err; })
+    .catch(err => { setActionStatus("Error: " + err); })
     .finally(() => updateSelectionUI(lastVisibleRows));
 }
 
 document.getElementById("accept-btn").addEventListener("click", () => submitReview("correct", "Correct"));
 document.getElementById("false-positive-btn").addEventListener("click", () => submitReview("false_positive", "False Positive"));
 document.getElementById("auto-btn").addEventListener("click", submitAuto);
+
+// Lock is independent of Accept/False -- a locked detection stays
+// unverified until (and unless) Accept/False is also clicked, so this
+// deliberately leaves the player open and the selection intact, unlike
+// submitReview() which closes the player since it resolves the candidate.
+async function submitLock(locked, idsOverride, skipConfirm) {
+  const ids = idsOverride || Array.from(selectedIds);
+  if (ids.length === 0) return;
+  if (!skipConfirm) {
+    const message = `${locked ? "Lock" : "Unlock"} ${ids.length} detection(s) in BirdNET-Go${locked ? " for a later second look" : ""}?\n\n${selectedSummary(ids)}`;
+    const confirmed = await customConfirm(message);
+    if (!confirmed) return;
+  }
+  document.getElementById("lock-btn").disabled = true;
+  document.getElementById("player-lock-btn").disabled = true;
+  setActionStatus(locked ? "Locking…" : "Unlocking…");
+  return fetch("/api/lock", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ detection_ids: ids, locked, source: "manual" }),
+  })
+    .then(r => r.json())
+    .then(resp => {
+      if (resp.error) {
+        setActionStatus("Error: " + resp.error);
+        return;
+      }
+      setActionStatus(`${locked ? "Locked" : "Unlocked"} ${resp.count} detection(s).`);
+      return refreshActiveView();
+    })
+    .catch(err => { setActionStatus("Error: " + err); })
+    .finally(() => updateSelectionUI(lastVisibleRows));
+}
+
+document.getElementById("lock-btn").addEventListener("click", () => submitLock(true));
 
 document.getElementById("menu-btn").addEventListener("click", () => {
   document.getElementById("menu-panel").classList.toggle("open");
@@ -1602,7 +1818,7 @@ document.getElementById("rows").addEventListener("click", e => {
   submitAutoRow(Number(btn.dataset.id), btn.dataset.verdict, btn);
 });
 
-document.getElementById("rows").addEventListener("click", e => {
+function handlePlayClick(e) {
   const btn = e.target.closest("button.play");
   if (!btn) return;
   document.querySelectorAll("button.play").forEach(b => b.classList.remove("playing"));
@@ -1631,7 +1847,9 @@ document.getElementById("rows").addEventListener("click", e => {
     cb.disabled = true;
   });
   updateSelectionUI(lastVisibleRows);
-});
+}
+document.getElementById("rows").addEventListener("click", handlePlayClick);
+document.getElementById("locked-rows").addEventListener("click", handlePlayClick);
 
 document.getElementById("rows").addEventListener("click", e => {
   const btn = e.target.closest(".xc-toggle");
@@ -1673,6 +1891,7 @@ document.getElementById("rows").addEventListener("click", e => {
 
 document.getElementById("player-accept-btn").addEventListener("click", () => submitReview("correct", "Correct"));
 document.getElementById("player-false-positive-btn").addEventListener("click", () => submitReview("false_positive", "False Positive"));
+document.getElementById("player-lock-btn").addEventListener("click", () => submitLock(true));
 document.getElementById("player-close-btn").addEventListener("click", closePlayer);
 
 document.addEventListener("click", e => {

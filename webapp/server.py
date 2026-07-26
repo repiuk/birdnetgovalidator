@@ -26,6 +26,7 @@ sys.path.insert(0, str(PROJECT_DIR))
 import config  # noqa: E402
 import verifier  # noqa: E402
 import candidate_finder  # noqa: E402
+import locked_finder  # noqa: E402
 import birdnetgo_client  # noqa: E402
 import cleanup  # noqa: E402
 
@@ -218,6 +219,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json({"birdnetgo_web_url": config.BIRDNETGO_WEB_URL})
         elif path == "/api/xenocanto":
             self._serve_xenocanto(parse_qs(parsed.query))
+        elif path == "/api/locked":
+            self._serve_locked()
         elif path.startswith("/audio-denoised/"):
             qs = parse_qs(parsed.query)
             level = qs.get("level", [""])[0]
@@ -235,6 +238,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_review()
         elif path == "/api/cleanup":
             self._handle_cleanup()
+        elif path == "/api/lock":
+            self._handle_lock()
         else:
             self.send_error(404, "Not found")
 
@@ -282,6 +287,12 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json({"error": "missing 'species'"}, status=400)
             return
         self._send_json(fetch_xenocanto(species))
+
+    def _serve_locked(self):
+        detections = locked_finder.get_locked_detections()
+        for d in detections:
+            d["common_name"] = COMMON_NAMES.get(d["species"], d["species"])
+        self._send_json(detections)
 
     def _handle_run(self):
         length = int(self.headers.get("Content-Length", 0))
@@ -351,6 +362,51 @@ class Handler(BaseHTTPRequestHandler):
                 birdnetgo_client.post_review_decision_comment(detection_id, verified, source)
             except Exception as e:  # noqa: BLE001 - a comment-post failure must not lose the review write
                 comment_errors.append(str(e))
+
+        resp = {"ok": True, "count": len(detection_ids)}
+        if comment_errors:
+            resp["comment_errors"] = comment_errors
+        self._send_json(resp)
+
+    def _handle_lock(self):
+        length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(length) if length else b"{}"
+        try:
+            payload = json.loads(body)
+        except json.JSONDecodeError:
+            payload = {}
+        detection_ids = payload.get("detection_ids") or []
+        locked = payload.get("locked")
+        source = payload.get("source", "manual")
+        if not detection_ids or not isinstance(locked, bool):
+            self._send_json(
+                {"error": "missing detection_ids or invalid locked value"}, status=400
+            )
+            return
+
+        # BirdNET-Go rejects comment posts on an already-locked detection
+        # (409), so the comment must go in before locking, and the lock
+        # write itself must happen before we can comment about unlocking.
+        comment_errors = []
+        if locked:
+            for detection_id in detection_ids:
+                try:
+                    birdnetgo_client.post_lock_comment(detection_id, locked, source)
+                except Exception as e:  # noqa: BLE001 - a comment-post failure must not lose the lock write
+                    comment_errors.append(str(e))
+
+        try:
+            birdnetgo_client.set_lock(detection_ids, locked)
+        except Exception as e:
+            self._send_json({"error": str(e)}, status=500)
+            return
+
+        if not locked:
+            for detection_id in detection_ids:
+                try:
+                    birdnetgo_client.post_lock_comment(detection_id, locked, source)
+                except Exception as e:  # noqa: BLE001 - a comment-post failure must not lose the lock write
+                    comment_errors.append(str(e))
 
         resp = {"ok": True, "count": len(detection_ids)}
         if comment_errors:
