@@ -695,7 +695,7 @@
     position: fixed;
     left: 0;
     right: 0;
-    bottom: 84px;
+    bottom: 60px;
     margin: 0;
     z-index: 15;
     border-left: none;
@@ -1556,6 +1556,18 @@ document.querySelectorAll("th[data-sort]").forEach(th => {
     render();
   });
 });
+// The bottom Auto/Accept/False bar's real height varies (it shrinks by a
+// row when #toolbar-actions-info is hidden while the player is open, and
+// varies further with env(safe-area-inset-bottom) on notched devices), so
+// pin the player bar to it by measurement instead of a guessed constant.
+function updatePlayerBarPosition() {
+  const bar = document.querySelector(".toolbar-actions");
+  const player = document.getElementById("player-bar");
+  if (!bar || !player) return;
+  player.style.bottom = bar.getBoundingClientRect().height + "px";
+}
+window.addEventListener("resize", updatePlayerBarPosition);
+
 function closePlayer() {
   const audio = document.getElementById("audio");
   audio.pause();
@@ -1569,6 +1581,7 @@ function closePlayer() {
   closeSpectrogramOverlay();
   document.getElementById("player-bar").classList.remove("active");
   document.body.classList.remove("player-active");
+  updatePlayerBarPosition();
   document.querySelectorAll("button.play").forEach(b => b.classList.remove("playing"));
   document.getElementById("fx-gain").value = 0;
   document.getElementById("fx-gain-label").textContent = "0dB";
@@ -1603,6 +1616,7 @@ document.getElementById("rows").addEventListener("click", e => {
   document.getElementById("player-spectrogram-btn").hidden = false;
   document.getElementById("player-bar").classList.add("active");
   document.body.classList.add("player-active");
+  updatePlayerBarPosition();
   ensureAudioGraph();
   if (audioCtx.state === "suspended") audioCtx.resume();
   audio.play();
