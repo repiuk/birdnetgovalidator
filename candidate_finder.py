@@ -150,6 +150,8 @@ def row_to_candidate(r, reasons, extra=None):
         "model": MODEL_NAMES.get(model, str(model)),
         "species": species,
         "confidence": conf,
+        "begin_time": b1,
+        "end_time": e1,
         "clip_name": clip,
         "clip_path": path,
         "clip_exists": exists,

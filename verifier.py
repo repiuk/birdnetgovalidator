@@ -20,6 +20,18 @@ RESULTS_DIR = config.RESULTS_DIR
 CONFIRM_THRESHOLD = 0.8
 MODELS = ["birdnet-v24", "perch-v2"]
 
+# BirdNET-Go exports clips longer than the actual detection: `precapture`
+# seconds of audio before the event plus enough after to cover it (config.yaml
+# realtime.audio.export.precapture=7, length=20 on this install). So a
+# detection's begin_time always lands `PRECAPTURE_SECONDS` into the clip, and
+# end_time lands (begin_time - end_time) later than that -- confirmed against
+# real detections (id 99679: begin/end 13000ms apart, clip audio_duration
+# 20.0s, filename timestamp matches end_time). Clips often contain other birds
+# calling before/after the actual detection window, so without this offset,
+# picking birda's single loudest detection anywhere in the whole clip can
+# pick up an unrelated bird instead of the one BirdNET-Go actually flagged.
+PRECAPTURE_SECONDS = 7.0
+
 
 def run_birda_batch(model, clip_paths):
     if not clip_paths:
@@ -45,16 +57,34 @@ def load_model_result(outdir, clip_path):
         return json.load(f)
 
 
-def top_detection(detections):
+def detection_window_seconds(begin_time_ms, end_time_ms):
+    """Convert a detection's absolute begin/end_time (ms) into a (start, end)
+    offset in seconds within its exported clip -- see PRECAPTURE_SECONDS."""
+    start = PRECAPTURE_SECONDS
+    end = start + (end_time_ms - begin_time_ms) / 1000.0
+    return start, end
+
+
+def top_detection(detections, window=None):
+    """Highest-confidence detection, restricted to those overlapping `window`
+    (start, end) in clip-relative seconds when given -- so a loud bird calling
+    outside the actual detection window doesn't get picked over the one
+    BirdNET-Go actually flagged."""
+    if window is not None:
+        win_start, win_end = window
+        detections = [
+            d for d in detections
+            if d["start_time"] < win_end and d["end_time"] > win_start
+        ]
     if not detections:
         return None
     return max(detections, key=lambda d: d["confidence"])
 
 
-def verdict_for(detections, original_species, confirm_threshold=CONFIRM_THRESHOLD):
-    if not detections:
+def verdict_for(detections, original_species, window=None, confirm_threshold=CONFIRM_THRESHOLD):
+    top = top_detection(detections, window)
+    if top is None:
         return "no_detection", None, None
-    top = top_detection(detections)
     same_species = top["scientific_name"] == original_species
     if same_species and top["confidence"] >= confirm_threshold:
         return "confirm", top["scientific_name"], top["confidence"]
@@ -107,11 +137,17 @@ def verify_candidates(candidates, confirm_threshold=CONFIRM_THRESHOLD):
 
     results = {}
     for c in candidates:
+        window = None
+        if c.get("begin_time") is not None and c.get("end_time") is not None:
+            window = detection_window_seconds(c["begin_time"], c["end_time"])
+
         rec = {}
         for model in MODELS:
             data = load_model_result(model_outdirs[model], c["clip_path"])
             detections = data["detections"] if data else []
-            verdict, top_species, top_conf = verdict_for(detections, c["species"], confirm_threshold)
+            verdict, top_species, top_conf = verdict_for(
+                detections, c["species"], window, confirm_threshold
+            )
             rec[f"verify_{model.replace('-', '_')}"] = {
                 "verdict": verdict,
                 "top_species": top_species,
