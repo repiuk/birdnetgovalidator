@@ -444,6 +444,16 @@
     font-size: 0.78rem;
   }
   #fx-gain-label { font-family: var(--font-mono); min-width: 3.2em; display: inline-block; }
+  .player-row-waveform { width: 100%; }
+  #player-waveform {
+    display: block;
+    width: 100%;
+    height: 120px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    cursor: pointer;
+  }
   .count { color: var(--muted); font-weight: 400; }
   .no-clip { opacity: 0.4; }
   #confirm-overlay {
@@ -786,6 +796,9 @@
     <audio id="audio" controls></audio>
     <button id="player-close-btn" class="player-close" title="Close player">✕</button>
   </div>
+  <div class="player-row-waveform">
+    <canvas id="player-waveform" title="Click to seek"></canvas>
+  </div>
   <div class="player-row-controls">
     <div class="player-fx">
       <label class="fx-control fx-gain-control" title="Boost or attenuate playback volume">Gain
@@ -944,6 +957,110 @@ document.getElementById("fx-denoise").addEventListener("change", e => {
   audio.src = clipUrlForDenoise(select.value);
 });
 
+// Spectrogram + detection-window marker in the player bar. Reuses
+// BirdNET-Go's own spectrogram bitmap (same one shown via the spectrogram
+// overlay button) rather than recomputing an STFT ourselves. BirdNET-Go
+// exports clips with `precapture` seconds of lead-in before the actual
+// detection (see PRECAPTURE_SECONDS in verifier.py -- keep this in sync
+// with that), so the marked window is offset into the clip, not at 0.
+const PRECAPTURE_SECONDS = 7.0;
+const waveformCanvas = document.getElementById("player-waveform");
+const waveformCtx = waveformCanvas.getContext("2d");
+let waveformToken = 0;
+let waveformWindow = null; // {start, end} in seconds, clip-relative
+let waveformLabel = "";
+let waveformImage = null; // Image, the raw (axis-free) BirdNET-Go spectrogram bitmap
+
+function clearWaveform() {
+  waveformToken++;
+  waveformImage = null;
+  waveformWindow = null;
+  waveformCtx.clearRect(0, 0, waveformCanvas.width, waveformCanvas.height);
+}
+
+function drawWaveform() {
+  const dpr = window.devicePixelRatio || 1;
+  const cssWidth = waveformCanvas.clientWidth;
+  const cssHeight = waveformCanvas.clientHeight;
+  waveformCanvas.width = cssWidth * dpr;
+  waveformCanvas.height = cssHeight * dpr;
+  const ctx = waveformCtx;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, cssWidth, cssHeight);
+
+  if (waveformImage) {
+    ctx.drawImage(waveformImage, 0, 0, cssWidth, cssHeight);
+  }
+
+  const audio = document.getElementById("audio");
+  const duration = audio.duration || 0;
+  const style = getComputedStyle(document.body);
+  const accent = style.getPropertyValue("--accent").trim() || "#3c6e78";
+  const surface = style.getPropertyValue("--surface").trim() || "#ffffff";
+
+  if (waveformWindow && duration) {
+    const x1 = (waveformWindow.start / duration) * cssWidth;
+    const x2 = (waveformWindow.end / duration) * cssWidth;
+    ctx.fillStyle = accent + "33";
+    ctx.fillRect(x1, 0, Math.max(1, x2 - x1), cssHeight);
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x1, 1, Math.max(1, x2 - x1), cssHeight - 2);
+
+    ctx.font = "10px sans-serif";
+    ctx.textBaseline = "top";
+    const textW = ctx.measureText(waveformLabel).width;
+    const tx = Math.min(x1 + 3, Math.max(0, cssWidth - textW - 6));
+    ctx.fillStyle = surface + "cc";
+    ctx.fillRect(tx - 2, 1, textW + 4, 12);
+    ctx.fillStyle = accent;
+    ctx.fillText(waveformLabel, tx, 2);
+  }
+
+  if (duration && !audio.paused) {
+    const x = (audio.currentTime / duration) * cssWidth;
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, cssHeight);
+    ctx.stroke();
+  }
+}
+
+function loadWaveform(detectionId, beginMs, endMs, species, conf) {
+  clearWaveform();
+  const token = waveformToken;
+  if (beginMs !== "" && endMs !== "" && beginMs != null && endMs != null) {
+    const start = PRECAPTURE_SECONDS;
+    const end = start + (Number(endMs) - Number(beginMs)) / 1000;
+    waveformWindow = { start, end };
+    waveformLabel = `${species || ""} ${conf !== "" && conf != null ? fmtConf(Number(conf)) : ""}`.trim();
+  }
+  const img = new Image();
+  img.onload = () => {
+    if (token !== waveformToken) return; // player moved on to another clip
+    waveformImage = img;
+    drawWaveform();
+  };
+  img.onerror = () => { /* spectrogram is a visual extra, playback still works without it */ };
+  img.src = spectrogramUrl(detectionId, "lg", true);
+}
+
+document.getElementById("audio").addEventListener("loadedmetadata", drawWaveform);
+document.getElementById("audio").addEventListener("timeupdate", drawWaveform);
+document.getElementById("audio").addEventListener("play", drawWaveform);
+document.getElementById("audio").addEventListener("pause", drawWaveform);
+waveformCanvas.addEventListener("click", e => {
+  const audio = document.getElementById("audio");
+  if (!audio.duration) return;
+  const rect = waveformCanvas.getBoundingClientRect();
+  const frac = (e.clientX - rect.left) / rect.width;
+  audio.currentTime = Math.max(0, Math.min(1, frac)) * audio.duration;
+  if (audio.paused) audio.play();
+});
+window.addEventListener("resize", () => { if (waveformImage) drawWaveform(); });
+
 const PILL_LETTER = { confirm: "C", weak_match: "W", disagree: "D", no_detection: "N", not_run: "–" };
 const PILL_TITLE = { confirm: "Confirm", weak_match: "Weak match (same species, below confirm threshold)", disagree: "Disagree", no_detection: "No detection", not_run: "Not run" };
 const OVERALL_LETTER = { auto_confirm: "CC", auto_reject: "DD", manual_review: "MD", no_detection: "NN", not_run: "–" };
@@ -1097,7 +1214,7 @@ function render() {
   tbody.innerHTML = rows.map((r, i) => {
     const bn = r.verify_birdnet_v24, pc = r.verify_perch_v2;
     const altClass = i % 2 === 1 ? " row-alt" : "";
-    const clipAttr = r.clip_name ? `data-clip="${r.clip_name}" data-label="${r.common_name} #${r.detection_id}" data-id="${r.detection_id}"` : "";
+    const clipAttr = r.clip_name ? `data-clip="${r.clip_name}" data-label="${r.common_name} #${r.detection_id}" data-id="${r.detection_id}" data-begin="${r.begin_time ?? ""}" data-end="${r.end_time ?? ""}" data-species="${escapeHtml(r.common_name)}" data-conf="${r.confidence ?? ""}"` : "";
     const sciLine = r.common_name !== r.species ? `<span class="species-sci">${r.species}</span>` : "";
     const reviewUrl = `${birdnetgoWebUrl}/ui/detections/${r.detection_id}?tab=review`;
     return `<tr class="${r.clip_exists ? "" : "no-clip"}${altClass}" data-verdict="${r.overall_verdict}">
@@ -1448,6 +1565,7 @@ function closePlayer() {
   document.getElementById("player-spectrogram").removeAttribute("src");
   currentPlayerDetectionId = null;
   currentClipName = null;
+  clearWaveform();
   closeSpectrogramOverlay();
   document.getElementById("player-bar").classList.remove("active");
   document.body.classList.remove("player-active");
@@ -1488,6 +1606,7 @@ document.getElementById("rows").addEventListener("click", e => {
   ensureAudioGraph();
   if (audioCtx.state === "suspended") audioCtx.resume();
   audio.play();
+  loadWaveform(btn.dataset.id, btn.dataset.begin, btn.dataset.end, btn.dataset.species, btn.dataset.conf);
 
   const id = Number(btn.dataset.id);
   selectedIds.clear();
