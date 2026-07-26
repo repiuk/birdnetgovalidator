@@ -12,6 +12,7 @@ import random
 import re
 import subprocess
 import sys
+import tempfile
 import urllib.error
 import urllib.request
 from collections import defaultdict
@@ -33,6 +34,11 @@ CLIPS_BASE = config.CLIPS_DIR
 PORT = config.WEBAPP_PORT
 
 RANGE_RE = re.compile(r"bytes=(\d*)-(\d*)")
+
+# Same FFmpeg afftdn (nr=noise reduction dB, nf=noise floor dB) presets
+# BirdNET-Go itself uses for its "Denoise" player option, so a clip sounds
+# identical whether denoised here or in BirdNET-Go's own UI.
+DENOISE_PRESETS = {"light": (6, -30), "medium": (12, -40), "heavy": (20, -50)}
 
 NOT_RUN = {"verdict": "not_run", "top_species": None, "top_confidence": None}
 
@@ -212,6 +218,10 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json({"birdnetgo_web_url": config.BIRDNETGO_WEB_URL})
         elif path == "/api/xenocanto":
             self._serve_xenocanto(parse_qs(parsed.query))
+        elif path.startswith("/audio-denoised/"):
+            qs = parse_qs(parsed.query)
+            level = qs.get("level", [""])[0]
+            self._serve_audio_denoised(unquote(path[len("/audio-denoised/"):]), level)
         elif path.startswith("/audio/"):
             self._serve_audio(unquote(path[len("/audio/"):]))
         else:
@@ -355,15 +365,21 @@ class Handler(BaseHTTPRequestHandler):
             return
         self._send_json({"ok": True, **result})
 
-    def _serve_audio(self, clip_name):
+    def _resolve_clip_path(self, clip_name):
         full_path = (CLIPS_BASE / clip_name).resolve()
         try:
             full_path.relative_to(CLIPS_BASE.resolve())
         except ValueError:
             self.send_error(403, "Forbidden")
-            return
+            return None
         if not full_path.is_file():
             self.send_error(404, "Clip not found (may have been purged)")
+            return None
+        return full_path
+
+    def _serve_audio(self, clip_name):
+        full_path = self._resolve_clip_path(clip_name)
+        if full_path is None:
             return
 
         file_size = full_path.stat().st_size
@@ -403,6 +419,41 @@ class Handler(BaseHTTPRequestHandler):
                 except BrokenPipeError:
                     break
                 remaining -= len(chunk)
+
+    def _serve_audio_denoised(self, clip_name, level):
+        preset = DENOISE_PRESETS.get(level)
+        if preset is None:
+            self.send_error(400, "Invalid denoise level")
+            return
+        full_path = self._resolve_clip_path(clip_name)
+        if full_path is None:
+            return
+
+        nr, nf = preset
+        # Output to a seekable temp file rather than piping ffmpeg's stdout:
+        # FLAC's STREAMINFO duration/sample-count can only be backpatched
+        # into a seekable output, so a piped stream leaves the browser
+        # unable to show a duration or seek within the clip.
+        with tempfile.NamedTemporaryFile(suffix=".flac") as tmp_out:
+            try:
+                subprocess.run(
+                    [
+                        "ffmpeg", "-y", "-nostdin", "-i", str(full_path),
+                        "-af", f"afftdn=nr={nr}:nf={nf}",
+                        tmp_out.name,
+                    ],
+                    capture_output=True, timeout=30, check=True,
+                )
+            except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+                self.send_error(500, "Denoise processing failed")
+                return
+            data = Path(tmp_out.name).read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", "audio/flac")
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(data)
 
 
 def main():

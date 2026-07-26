@@ -273,17 +273,17 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 22px;
-    height: 22px;
+    width: 32px;
+    height: 32px;
     padding: 0;
     border: 1px solid var(--border);
     border-radius: 999px;
     background: var(--surface);
     color: var(--fg);
-    font-size: 0.7rem;
     cursor: pointer;
     flex: none;
   }
+  button.xc-toggle svg { width: 18px; height: 18px; fill: currentColor; }
   button.xc-toggle:hover { filter: brightness(0.95); }
   .xc-panel { display: none; flex-direction: column; gap: 6px; margin-top: 4px; max-width: 260px; white-space: normal; }
   .xc-panel.open { display: flex; }
@@ -330,6 +330,7 @@
     background: var(--bg);
     display: block;
   }
+  .spec-thumb-icon { display: none; width: 22px; height: 22px; fill: currentColor; }
   #spectrogram-overlay {
     display: none;
     position: fixed;
@@ -396,17 +397,40 @@
     border-radius: 10px;
     box-shadow: 0 -2px 8px -2px rgba(0, 0, 0, 0.25);
     display: none;
+    flex-direction: column;
+    gap: 10px;
+  }
+  #player-bar.active { display: flex; }
+  .player-row-main {
+    display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 12px;
+    gap: 10px;
   }
+  #player-label {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  #player-bar audio { flex: 1 1 220px; min-width: 200px; height: 32px; }
+  .player-row-controls {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: space-between;
+  }
+  .player-row-actions { display: flex; gap: 8px; flex: none; margin-left: auto; }
   .player-fx {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 12px;
     font-size: 0.78rem;
     color: var(--muted);
-    flex: none;
+    flex: 1 1 auto;
   }
   .fx-control { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
   .fx-control input[type=range] { width: 80px; }
@@ -419,8 +443,6 @@
     font-size: 0.78rem;
   }
   #fx-gain-label { font-family: var(--font-mono); min-width: 3.2em; display: inline-block; }
-  #player-bar.active { display: flex; }
-  #player-bar audio { flex: 1; height: 32px; }
   .count { color: var(--muted); font-weight: 400; }
   .no-clip { opacity: 0.4; }
   #confirm-overlay {
@@ -633,12 +655,20 @@
       border-left: none;
       border-right: none;
       border-radius: 0;
-      flex-wrap: wrap;
     }
-    #player-label { flex-basis: 100%; }
     #player-bar audio { flex-basis: 100%; }
-    .player-fx { flex-basis: 100%; justify-content: space-between; }
     #player-accept-btn, #player-false-positive-btn { display: none; }
+    button.spec-thumb-btn {
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+    }
+    #player-spectrogram { display: none; }
+    .spec-thumb-icon { display: block; }
   }
 </style>
 
@@ -649,7 +679,6 @@
   <button id="menu-btn" class="icon-btn" type="button" title="Menu" aria-label="Menu">☰</button>
   <select id="day"></select>
   <button id="refresh-btn">↻ Refresh</button>
-  <button id="run-btn-main" class="btn-run" title="Run birda for the selected day">▶ Birda</button>
   <span id="run-status"></span>
 
   <div id="menu-panel" class="dropdown-panel">
@@ -711,29 +740,44 @@
 </div>
 
 <div id="player-bar">
-  <span id="player-label" class="sub"></span>
-  <button type="button" id="player-spectrogram-btn" class="spec-thumb-btn" title="View full spectrogram" hidden>
-    <img id="player-spectrogram" alt="Spectrogram">
-  </button>
-  <audio id="audio" controls></audio>
-  <div class="player-fx">
-    <label class="fx-control" title="Boost or attenuate playback volume">Gain
-      <input type="range" id="fx-gain" min="-12" max="24" step="1" value="0">
-      <span id="fx-gain-label">0dB</span>
-    </label>
-    <label class="fx-control" title="High-pass filter to cut low-frequency rumble (wind, traffic)">Low-cut
-      <select id="fx-highpass">
-        <option value="20">Off</option>
-        <option value="500">500Hz</option>
-        <option value="1000" selected>1kHz</option>
-        <option value="2000">2kHz</option>
-      </select>
-    </label>
-    <label class="fx-control" title="Compress dynamic range to even out quiet/loud parts"><input type="checkbox" id="fx-normalize" checked> Normalize</label>
+  <div class="player-row-main">
+    <button type="button" id="player-spectrogram-btn" class="spec-thumb-btn" title="View full spectrogram" hidden>
+      <img id="player-spectrogram" alt="Spectrogram">
+      <svg class="spec-thumb-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5,13.5L11,16.51L14.5,12L19,18H5M21,19V5C21,3.9 20.1,3 19,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19Z"/></svg>
+    </button>
+    <span id="player-label" class="sub"></span>
+    <audio id="audio" controls></audio>
+    <button id="player-close-btn" class="player-close" title="Close player">✕</button>
   </div>
-  <button id="player-accept-btn" class="bulk-action btn-accept" disabled>✓ Accept</button>
-  <button id="player-false-positive-btn" class="bulk-action btn-reject" disabled>✕ False</button>
-  <button id="player-close-btn" class="player-close" title="Close player">✕</button>
+  <div class="player-row-controls">
+    <div class="player-fx">
+      <label class="fx-control" title="Boost or attenuate playback volume">Gain
+        <input type="range" id="fx-gain" min="-12" max="24" step="1" value="0">
+        <span id="fx-gain-label">0dB</span>
+      </label>
+      <label class="fx-control" title="High-pass filter to cut low-frequency rumble (wind, traffic)">Low-cut
+        <select id="fx-highpass">
+          <option value="20">Off</option>
+          <option value="500">500Hz</option>
+          <option value="1000" selected>1kHz</option>
+          <option value="2000">2kHz</option>
+        </select>
+      </label>
+      <label class="fx-control" title="Compress dynamic range to even out quiet/loud parts"><input type="checkbox" id="fx-normalize" checked> Normalize</label>
+      <label class="fx-control" title="Reduce background hiss (same FFT denoiser BirdNET-Go uses, applied server-side)">Denoise
+        <select id="fx-denoise">
+          <option value="off" selected>Off</option>
+          <option value="light">Light</option>
+          <option value="medium">Medium</option>
+          <option value="heavy">Heavy</option>
+        </select>
+      </label>
+    </div>
+    <div class="player-row-actions">
+      <button id="player-accept-btn" class="bulk-action btn-accept" disabled>✓ Accept</button>
+      <button id="player-false-positive-btn" class="bulk-action btn-reject" disabled>✕ False</button>
+    </div>
+  </div>
 </div>
 
 <div id="confirm-overlay">
@@ -783,12 +827,21 @@ document.addEventListener("keydown", e => {
   if (e.key === "Escape") closeSpectrogramOverlay();
 });
 
-// Playback audio effects (gain / low-cut / normalize), built with the Web
-// Audio API on top of the existing <audio> element -- same signal chain as
-// BirdNET-Go's own player (highpass -> gain -> dynamics compressor), but
-// reimplemented directly since BirdNET-Go's own page can't be embedded
-// (it sends X-Frame-Options: SAMEORIGIN).
+// Playback audio effects (gain / low-cut / normalize / denoise), built with
+// the Web Audio API on top of the existing <audio> element -- same signal
+// chain as BirdNET-Go's own player (highpass -> gain -> dynamics
+// compressor), but reimplemented directly since BirdNET-Go's own page can't
+// be embedded (it sends X-Frame-Options: SAMEORIGIN).
+//
+// Gain and Low-cut mirror BirdNET-Go's own client-side chain exactly
+// (highpass -> gain -> dynamics compressor, same coefficients). Denoise is
+// different: BirdNET-Go doesn't do it in the browser at all -- it re-encodes
+// the clip server-side through FFmpeg's afftdn filter and swaps in the
+// processed file. We reuse that instead of guessing at an equivalent, by
+// asking our own backend to run the same ffmpeg filter (see /audio-denoised/
+// in server.py) and pointing <audio> at the result.
 let audioCtx = null, fxHighpass = null, fxGain = null, fxCompressor = null;
+let currentClipName = null;
 
 function ensureAudioGraph() {
   if (audioCtx) return;
@@ -827,6 +880,32 @@ document.getElementById("fx-highpass").addEventListener("change", e => {
   if (fxHighpass) fxHighpass.frequency.value = Number(e.target.value);
 });
 document.getElementById("fx-normalize").addEventListener("change", e => setNormalize(e.target.checked));
+
+function clipUrlForDenoise(level) {
+  const clip = encodeURIComponent(currentClipName);
+  return level === "off"
+    ? "/audio/" + clip
+    : `/audio-denoised/${clip}?level=${level}`;
+}
+
+document.getElementById("fx-denoise").addEventListener("change", e => {
+  if (!currentClipName) return;
+  const select = e.target;
+  const audio = document.getElementById("audio");
+  const resumeAt = audio.currentTime;
+  const wasPlaying = !audio.paused;
+  select.disabled = true;
+  const onReady = () => {
+    audio.removeEventListener("loadedmetadata", onReady);
+    audio.removeEventListener("error", onReady);
+    audio.currentTime = resumeAt;
+    if (wasPlaying) audio.play();
+    select.disabled = false;
+  };
+  audio.addEventListener("loadedmetadata", onReady);
+  audio.addEventListener("error", onReady);
+  audio.src = clipUrlForDenoise(select.value);
+});
 
 const PILL_LETTER = { confirm: "C", weak_match: "W", disagree: "D", no_detection: "N", not_run: "–" };
 const PILL_TITLE = { confirm: "Confirm", weak_match: "Weak match (same species, below confirm threshold)", disagree: "Disagree", no_detection: "No detection", not_run: "Not run" };
@@ -874,7 +953,9 @@ function model2Cell(v, label) {
           `<a class="model2-sci-link" href="${xenoCantoUrl(v.top_species)}" target="_blank" rel="noopener"><span class="model2-sci">${v.top_species}</span></a>` +
           `<span class="model2-common">${v.top_common_name || ""}</span>` +
         `</div>` +
-        `<button type="button" class="xc-toggle" data-species="${v.top_species}" title="Reference recordings from xeno-canto">🔊</button>` +
+        `<button type="button" class="xc-toggle" data-species="${v.top_species}" title="Reference recordings from xeno-canto">` +
+          `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14,3.23V5.29C16.89,6.15 19,8.83 19,12C19,15.17 16.89,17.84 14,18.7V20.77C18,19.86 21,16.28 21,12C21,7.72 18,4.14 14,3.23M16.5,12C16.5,10.23 15.5,8.71 14,7.97V16C15.5,15.29 16.5,13.76 16.5,12M3,9V15H7L12,20V4L7,9H3Z"/></svg>` +
+        `</button>` +
       `</div>`
     : "";
   return `<td class="model2-cell" data-label="${label}">${pill(v.verdict)} <span class="sub">${fmtConf(v.top_confidence)}</span>${detail}</td>`;
@@ -1077,7 +1158,7 @@ function runBirda() {
   const day = document.getElementById("day").value;
   const force = document.getElementById("force").checked;
   if (!day) return;
-  const buttons = [document.getElementById("run-btn"), document.getElementById("run-btn-main")];
+  const buttons = [document.getElementById("run-btn")];
   const status = document.getElementById("run-status");
   buttons.forEach(b => { b.disabled = true; });
   status.textContent = `Running birda on ${day}…`;
@@ -1124,7 +1205,6 @@ function runCleanup() {
 
 document.getElementById("cleanup-btn").addEventListener("click", runCleanup);
 document.getElementById("run-btn").addEventListener("click", runBirda);
-document.getElementById("run-btn-main").addEventListener("click", runBirda);
 
 document.getElementById("refresh-btn").addEventListener("click", () => {
   const btn = document.getElementById("refresh-btn");
@@ -1336,6 +1416,7 @@ function closePlayer() {
   document.getElementById("player-spectrogram-btn").hidden = true;
   document.getElementById("player-spectrogram").removeAttribute("src");
   currentPlayerDetectionId = null;
+  currentClipName = null;
   closeSpectrogramOverlay();
   document.getElementById("player-bar").classList.remove("active");
   document.querySelectorAll("button.play").forEach(b => b.classList.remove("playing"));
@@ -1343,6 +1424,7 @@ function closePlayer() {
   document.getElementById("fx-gain-label").textContent = "0dB";
   document.getElementById("fx-highpass").value = "1000";
   document.getElementById("fx-normalize").checked = true;
+  document.getElementById("fx-denoise").value = "off";
   if (fxGain) fxGain.gain.value = 1;
   if (fxHighpass) fxHighpass.frequency.value = 1000;
   setNormalize(true);
@@ -1363,7 +1445,8 @@ document.getElementById("rows").addEventListener("click", e => {
   document.querySelectorAll("button.play").forEach(b => b.classList.remove("playing"));
   btn.classList.add("playing");
   const audio = document.getElementById("audio");
-  audio.src = "/audio/" + btn.dataset.clip;
+  currentClipName = btn.dataset.clip;
+  audio.src = clipUrlForDenoise(document.getElementById("fx-denoise").value);
   document.getElementById("player-label").textContent = btn.dataset.label;
   currentPlayerDetectionId = btn.dataset.id;
   document.getElementById("player-spectrogram").src = spectrogramUrl(btn.dataset.id, "sm", true);
