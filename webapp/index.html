@@ -1,4 +1,4 @@
-<title>BirdNET-Go Validation Candidates</title>
+<title>BirdNET-Go Validator</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj4KPGNpcmNsZSBjeD0iMzQiIGN5PSI2NCIgcj0iMzIiIGZpbGw9IiMwMDAwMDAiLz4KPGNpcmNsZSBjeD0iNjMiIGN5PSIzNSIgcj0iMzciIGZpbGw9IiMwMDAwMDAiLz4KPHBhdGggZD0iTTIxIDUyIEw0NyA3OCBNNDcgNTIgTDIxIDc4IiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS13aWR0aD0iOSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+CjxwYXRoIGQ9Ik00OSAzNyBMNjAgNDggTDg0IDIwIiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS13aWR0aD0iOSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBmaWxsPSJub25lIi8+Cjwvc3ZnPg==">
@@ -627,7 +627,7 @@
   .spec-thumb-icon { display: block; }
 </style>
 
-<h1>BirdNET-Go Validation Candidates</h1>
+<h1>BirdNET-Go Validator</h1>
 <div class="subtitle" id="subtitle">Loading…</div>
 
 <div class="sticky-header">
@@ -640,9 +640,9 @@
     <div id="menu-panel" class="dropdown-panel">
       <input type="text" id="search" placeholder="Search species or ID…">
       <div class="menu-settings">
-        <label class="force-check"><input type="checkbox" id="force"> re-run cached</label>
         <label class="force-check"><input type="checkbox" id="rarity-enabled"> rarity min 1&ndash;max <input type="number" id="rare-max" value="5" min="1" step="1" class="param" disabled></label>
         <label class="force-check">confirm ≥ <input type="number" id="confirm-threshold" value="0.8" min="0" max="1" step="0.01" class="param"></label>
+        <button id="rerun-cached-btn" class="btn-run" title="Re-run birda now on detections that already have a cached result (current day, or selection in Locked view)">↻ Re-run Birda</button>
         <button id="cleanup-btn" class="btn-run" title="Remove cache entries and birda result files for detections that have aged out of the 7-day candidate window">🧹 Cleanup</button>
       </div>
     </div>
@@ -1398,9 +1398,11 @@ function setViewMode(mode) {
   updateRunButtonTitle();
 }
 
-function runBirda() {
-  const force = document.getElementById("force").checked;
-  const btn = document.getElementById("run-btn");
+// force=true is a one-shot action (the "Re-run Birda" button in the
+// hamburger menu) rather than a sticky checkbox, so a forced re-run can't
+// accidentally linger and affect the next normal "Birda" press.
+function runBirda(force) {
+  const triggerBtns = [document.getElementById("run-btn"), document.getElementById("rerun-cached-btn")];
   const status = document.getElementById("run-status");
 
   // Locked detections aren't day-scoped (they can be any age -- that's the
@@ -1410,7 +1412,7 @@ function runBirda() {
   if (viewMode === "locked") {
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
-    btn.disabled = true;
+    triggerBtns.forEach(b => b.disabled = true);
     status.textContent = `Running birda on ${ids.length} selected…`;
     fetch("/api/run", {
       method: "POST",
@@ -1427,13 +1429,16 @@ function runBirda() {
         return loadLocked();
       })
       .catch(err => { status.textContent = "Error: " + err; })
-      .finally(() => { btn.disabled = false; updateSelectionUI(lastVisibleLockedRows); });
+      .finally(() => {
+        document.getElementById("rerun-cached-btn").disabled = false;
+        updateSelectionUI(lastVisibleLockedRows);
+      });
     return;
   }
 
   const day = document.getElementById("day").value;
   if (!day || day === "__all__") return;
-  btn.disabled = true;
+  triggerBtns.forEach(b => b.disabled = true);
   status.textContent = `Running birda on ${day}…`;
   fetch("/api/run", {
     method: "POST",
@@ -1456,7 +1461,7 @@ function runBirda() {
       return Promise.all([loadCandidates(), loadDays(day)]);
     })
     .catch(err => { status.textContent = "Error: " + err; })
-    .finally(() => { btn.disabled = false; });
+    .finally(() => { triggerBtns.forEach(b => b.disabled = false); });
 }
 
 function runCleanup() {
@@ -1478,7 +1483,8 @@ function runCleanup() {
 }
 
 document.getElementById("cleanup-btn").addEventListener("click", runCleanup);
-document.getElementById("run-btn").addEventListener("click", runBirda);
+document.getElementById("run-btn").addEventListener("click", () => runBirda(false));
+document.getElementById("rerun-cached-btn").addEventListener("click", () => runBirda(true));
 
 document.getElementById("refresh-btn").addEventListener("click", () => {
   const btn = document.getElementById("refresh-btn");
