@@ -23,15 +23,21 @@ clip, or a 🔊 to hear a xeno-canto reference recording of what the model
 
 ## How it decides what to show you
 
-A detection is a "candidate" if its species had **1–5 total detections on
-that local calendar day** (daily rarity) — the idea being that a species
-your setup rarely hears is more likely to be a misidentification than one
-it hears constantly. See `candidate_finder.py` for the full query.
+By default **every detection in the rolling ~7-day window is a candidate**.
+The filtering that does the real work is the exclude list: copy
+`excluded_species.example.txt` to `excluded_species.txt` (gitignored,
+personal to your setup) and list the species you never want to see, one
+Dutch common name per line — the birds your setup hears constantly and has
+no doubt about. See that file for the exact format.
 
-Species you never want to see, no matter how rare that day, can be
-permanently skipped — copy `excluded_species.example.txt` to
-`excluded_species.txt` (gitignored, personal to your setup) and list them
-by Dutch common name, one per line. See that file for the exact format.
+Optionally you can also narrow by **daily rarity** — keeping only species
+with between 1 and N total detections on that local calendar day, on the
+idea that a species your setup rarely hears is likelier to be a
+misidentification than one it hears all day. This is **off by default**
+(tick the rarity box in the hamburger menu, or pass `--rarity` to
+`find_candidates.py`); once the exclude list is doing its job, rarity is
+more useful as an occasional lens than as the main gate. See
+`candidate_finder.py` for the query.
 
 Each candidate's clip is then re-classified by two independent birda
 models (`birdnet-v24` and `perch-v2`), each scored per-model as **confirm**
@@ -51,6 +57,16 @@ overall verdict:
 
 The webapp's ⚡ Auto button (bulk, or per-row) writes CC/DD verdicts back to
 BirdNET-Go in one action; MD/NN are left for manual Accept/False positive.
+
+**🔒 Hold** is a third option, independent of accept/reject: it locks the
+detection in BirdNET-Go, which also exempts its clip from BirdNET-Go's own
+disk-usage retention purge. That makes it a "keep this for a proper listen
+later" marker — useful because the candidate window only reaches back 7
+days, and clips age out. Held detections are browsable any time via the
+**🔒 Locked** entry in the day dropdown, regardless of age, and stay
+visible on their own day even after you've reviewed them. The **G**/**V**
+pill on a card says where the lock came from: **G** for one set in
+BirdNET-Go's own GUI, **V** for one set here.
 
 Next to each model's guess, the 🔊 button fetches a few reference
 recordings of that species from [xeno-canto](https://xeno-canto.org) (via
@@ -122,6 +138,7 @@ Then `sudo systemctl enable --now birdnet-validator`.
 |---|---|
 | `config.py` | All configuration, env-var overridable (see `.env.example`) |
 | `candidate_finder.py` | Picks which recent detections need review (reads BirdNET-Go's DB read-only) |
+| `locked_finder.py` | Finds held/locked detections of any age, for the Locked view |
 | `excluded_species.example.txt` | Template for `excluded_species.txt`, species to always skip |
 | `verifier.py` | Runs birda against candidate clips, computes verdicts |
 | `cleanup.py` | Prunes cache entries and birda result files for detections that have aged out of the 7-day window |
