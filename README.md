@@ -9,6 +9,18 @@ result straight back into BirdNET-Go via its own web API.
 It does **not** replace BirdNET-Go's own review UI — it's a triage layer
 on top of it, focused on the last ~7 days of detections.
 
+<p align="center">
+  <img src="docs/screenshot-candidates.png" alt="Candidate list on a phone: each detection is a card showing BirdNET-Go's original call plus both second-opinion models, colour-coded by verdict, with bulk actions pinned to the bottom" width="380">
+</p>
+
+Each candidate is one card: BirdNET-Go's original call on top, then what
+the two independent models made of the same clip. The letter pill is the
+combined verdict — **CC** auto-confirm, **DD** auto-reject, **MD** manual
+review, **NN** no detection — and the card's left border repeats it as
+colour. Tap a species name to open it in BirdNET-Go, the ▶ to hear the
+clip, or a 🔊 to hear a xeno-canto reference recording of what the model
+*thought* it heard. Accept/False/Hold apply to everything you've ticked.
+
 ## How it decides what to show you
 
 A detection is a "candidate" if its species had **1–5 total detections on
