@@ -9,7 +9,6 @@
     --fg: #172321;
     --muted: #5b6b68;
     --border: #d7e0de;
-    --row-alt: #f5f8f7;
     --row-hover: #e3ecea;
     --confirm-bg: #dcefe1;
     --confirm-fg: #1f6b45;
@@ -38,7 +37,6 @@
       --fg: #e7ede9;
       --muted: #93a39d;
       --border: #2b3733;
-      --row-alt: #141c1a;
       --row-hover: #1f2b28;
       --confirm-bg: rgba(76, 175, 111, 0.18);
       --confirm-fg: #7fd9a0;
@@ -109,60 +107,6 @@
     color: var(--muted);
     white-space: nowrap;
   }
-  .table-wrap {
-    overflow-x: auto;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-  }
-  table { border-collapse: collapse; width: 100%; font-size: 0.85rem; min-width: 780px; }
-  th, td {
-    padding: 10px 12px;
-    text-align: left;
-    border-bottom: 1px solid var(--border);
-    white-space: nowrap;
-  }
-  th {
-    position: sticky;
-    top: 0;
-    background: var(--surface);
-    cursor: pointer;
-    color: var(--muted);
-    font-weight: 600;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-  }
-  tbody tr.row-alt { background: var(--row-alt); }
-  tbody tr:hover { background: var(--row-hover); }
-  th:nth-child(1), td:nth-child(1),
-  th:nth-child(2), td:nth-child(2),
-  th:nth-child(3), td:nth-child(3) {
-    position: sticky;
-    background: var(--surface);
-  }
-  th:nth-child(1), td:nth-child(1) { left: 0; width: 32px; min-width: 32px; max-width: 32px; text-align: center; }
-  th:nth-child(2), td:nth-child(2) { left: 32px; width: 60px; min-width: 60px; max-width: 60px; overflow: hidden; }
-  th:nth-child(3), td:nth-child(3) { left: 92px; box-shadow: 2px 0 4px -2px rgba(0, 0, 0, 0.25); }
-  th:nth-child(1), th:nth-child(2), th:nth-child(3) { z-index: 3; }
-  td:nth-child(1), td:nth-child(2), td:nth-child(3) { z-index: 1; }
-  tbody tr.row-alt td:nth-child(1), tbody tr.row-alt td:nth-child(2), tbody tr.row-alt td:nth-child(3) { background: var(--row-alt); }
-  tbody tr:hover td:nth-child(1), tbody tr:hover td:nth-child(2), tbody tr:hover td:nth-child(3) { background: var(--row-hover); }
-  tbody tr[data-verdict="auto_confirm"],
-  tbody tr[data-verdict="auto_confirm"] td:nth-child(1),
-  tbody tr[data-verdict="auto_confirm"] td:nth-child(2),
-  tbody tr[data-verdict="auto_confirm"] td:nth-child(3) { background: var(--confirm-bg); }
-  tbody tr[data-verdict="auto_reject"],
-  tbody tr[data-verdict="auto_reject"] td:nth-child(1),
-  tbody tr[data-verdict="auto_reject"] td:nth-child(2),
-  tbody tr[data-verdict="auto_reject"] td:nth-child(3) { background: var(--disagree-bg); }
-  tbody tr[data-verdict="auto_confirm"]:hover,
-  tbody tr[data-verdict="auto_confirm"]:hover td:nth-child(1),
-  tbody tr[data-verdict="auto_confirm"]:hover td:nth-child(2),
-  tbody tr[data-verdict="auto_confirm"]:hover td:nth-child(3),
-  tbody tr[data-verdict="auto_reject"]:hover,
-  tbody tr[data-verdict="auto_reject"]:hover td:nth-child(1),
-  tbody tr[data-verdict="auto_reject"]:hover td:nth-child(2),
-  tbody tr[data-verdict="auto_reject"]:hover td:nth-child(3) { background: var(--row-hover); }
   .auto-icon { margin-left: 3px; font-size: 0.75rem; vertical-align: middle; }
   button.auto-row-btn {
     border: none;
@@ -193,16 +137,20 @@
   .pill.not_run { background: transparent; color: var(--muted); font-weight: 400; }
   .pill.pill-wide { width: auto; min-width: 24px; padding: 0 5px; border-radius: 9px; }
 
-  .locked-list {
+  /* Single card component shared by the candidates and locked views (see
+     cardHtml()) -- cards wrap into as many ~420px columns as the window
+     fits, instead of one column stretched full-width; align-items:
+     flex-start keeps cards their own natural height instead of stretching
+     to match the tallest one in the same row. */
+  .card-list {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
+    align-items: flex-start;
     gap: 10px;
     margin-top: 10px;
   }
-  /* Mirrors the candidate table's mobile-card layout (tbody tr below) so
-     the two views read as the same design, not two different components. */
-  .locked-card {
+  .card {
     display: flex;
     flex: 0 1 420px;
     flex-wrap: wrap;
@@ -210,26 +158,26 @@
     column-gap: 10px;
     row-gap: 3px;
     border: 1px solid var(--border);
+    border-left: 4px solid var(--border);
     border-radius: 10px;
     padding: 10px 12px;
     background: var(--surface);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   }
-  .locked-card.no-clip { opacity: 0.6; }
-  .locked-card input[type=checkbox] { width: 20px; height: 20px; }
-  .locked-card-species { flex: 1 1 140px; }
-  .locked-card-id, .locked-card-detail { flex: 0 0 auto; font-size: 0.78rem; color: var(--muted); }
-  /* Candidates' equivalent box is a <td>, which a later unconditional
-     `table td { background: transparent !important }` rule strips back to
-     the card's own background; this is a plain <div> so that rule never
-     reaches it and the raw .model2-cell grey (var(--bg)) was showing
-     through instead -- override it the same way. */
-  .locked-card-model2 { flex: 1 1 calc(50% - 5px); background: transparent !important; }
-  /* Candidates open the xc-panel as a full-width sibling <tr>; a locked
-     card has no such sibling row, so its single shared panel just lives
-     inside the card and drops to its own line via flex-basis:100% when
-     opened (harmless while display:none/closed). */
-  .locked-card .xc-panel {
+  .card.no-clip { opacity: 0.4; }
+  .card input[type=checkbox] { width: 20px; height: 20px; }
+  .card-species { flex: 1 1 140px; line-height: 1.3; }
+  .card-id, .card-detail { flex: 0 0 auto; font-size: 0.78rem; color: var(--muted); }
+  .card-model2 { flex: 1 1 calc(50% - 5px); }
+  /* Candidate verdict colors and locked verified-status colors share one
+     left-border treatment so both views read the same signal the same way. */
+  .card[data-verdict="auto_confirm"] { border-left-color: var(--confirm-fg); background: var(--confirm-bg); }
+  .card[data-verdict="auto_reject"] { border-left-color: var(--disagree-fg); background: var(--disagree-bg); }
+  .card[data-verdict="manual_review"] { border-left-color: var(--manual-fg); }
+  .card[data-verdict="no_detection"] { border-left-color: var(--nodet-fg); }
+  .card[data-status="correct"] { border-left-color: var(--confirm-fg); }
+  .card[data-status="false_positive"] { border-left-color: var(--disagree-fg); }
+  .card .xc-panel {
     flex-basis: 100%;
     max-width: none;
     margin-top: 0;
@@ -302,7 +250,6 @@
   }
   label.force-check { display: flex; align-items: center; gap: 4px; font-size: 0.78rem; color: var(--muted); }
   #run-status { font-size: 0.8rem; color: var(--muted); }
-  .species-cell { line-height: 1.3; }
   .species-link { text-decoration: none; }
   .species-link .species-common { color: var(--accent); text-decoration: underline; }
   .species-link:hover .species-common { filter: brightness(1.15); }
@@ -314,7 +261,13 @@
     font-variant-numeric: tabular-nums;
     font-size: 0.8rem;
   }
-  .model2-cell { line-height: 1.3; }
+  .model2-cell {
+    line-height: 1.3;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    padding: 8px;
+  }
   .model2-detail-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
   .model2-names { min-width: 0; }
   .model2-sci-link { text-decoration: none; }
@@ -340,28 +293,6 @@
   button.xc-toggle:hover { filter: brightness(0.95); }
   .xc-panel { display: none; flex-direction: column; gap: 6px; margin-top: 4px; max-width: 260px; white-space: normal; }
   .xc-panel.open { display: flex; }
-  tr.xc-row { display: none; }
-  tr.xc-row:has(.xc-panel.open) { display: table-row; }
-  tr.xc-row td {
-    padding-top: 0 !important;
-    padding-bottom: 12px !important;
-    position: static;
-    left: auto;
-    width: auto;
-    min-width: 0;
-    max-width: none;
-    text-align: left;
-    box-shadow: none;
-    z-index: auto;
-  }
-  tr.xc-row .xc-panel {
-    margin-top: 0;
-    max-width: none;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--bg);
-    padding: 10px;
-  }
   .xc-rec { display: flex; flex-direction: column; gap: 2px; }
   .xc-rec audio { width: 100%; height: 32px; }
   button.spec-thumb-btn {
@@ -559,10 +490,10 @@
   .toolbar-actions-buttons {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 4px;
   }
 
-  body { padding: 12px; padding-bottom: 108px; }
+  body { padding: 12px; padding-bottom: 96px; }
   h1 { font-size: 1.15rem; }
   .subtitle { font-size: 0.78rem; }
 
@@ -636,125 +567,26 @@
     gap: 6px;
     background: var(--surface);
     border-top: 1px solid var(--border);
-    padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+    padding: 6px 12px calc(6px + env(safe-area-inset-bottom));
     box-shadow: 0 -2px 8px -2px rgba(0, 0, 0, 0.25);
   }
   .toolbar-actions-info { justify-content: space-between; font-size: 0.78rem; }
-  .toolbar-actions-buttons { justify-content: center; }
+  /* 5 buttons at comfortable tap-target size don't fit one row on a phone
+     width -- wrap instead of overflowing off-screen (was clipping "False"
+     entirely and cutting "Accept" off at the edge). */
+  .toolbar-actions-buttons { justify-content: center; flex-wrap: wrap; row-gap: 8px; }
   .toolbar-actions-buttons button.bulk-action {
     flex: 0 0 auto;
-    min-height: 40px;
+    min-height: 34px;
     font-size: 0.9rem;
-    padding: 8px 24px;
+    padding: 6px 3px;
   }
   label.select-all-mobile, #selection-count { display: none; }
   .toolbar-actions-info.has-selection label.select-all-mobile { display: flex; }
   .toolbar-actions-info.has-selection #selection-count { display: inline; }
 
-  .table-wrap { border: none; overflow-x: visible; }
-  table { display: block; min-width: 0; width: 100%; }
-  /* Cards wrap into as many ~420px columns as the window fits, instead of
-     one column stretched to the full window width (which is what let the
-     row-internal flex-wrap fix above get overwhelmed on very wide windows). */
-  tbody { display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; column-gap: 10px; row-gap: 10px; }
-  thead { display: none; }
-
-  tbody tr {
-    display: flex;
-    flex: 0 1 420px;
-    flex-wrap: wrap;
-    align-items: center;
-    column-gap: 10px;
-    row-gap: 3px;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 10px 12px;
-    background: var(--surface) !important;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-  }
-  tbody tr[data-verdict="auto_confirm"] { border-left: 4px solid var(--confirm-fg); background: var(--confirm-bg) !important; }
-  tbody tr[data-verdict="auto_reject"] { border-left: 4px solid var(--disagree-fg); background: var(--disagree-bg) !important; }
-  tbody tr[data-verdict="manual_review"] { border-left: 4px solid var(--manual-fg); }
-  tbody tr[data-verdict="no_detection"] { border-left: 4px solid var(--nodet-fg); }
-  tbody tr[data-verdict="not_run"] { border-left: 4px solid var(--border); }
-
-  tbody tr.xc-row {
-    display: none;
-    border: none;
-    box-shadow: none;
-    padding: 0;
-    background: transparent !important;
-  }
-  /* flex-basis:100% pins the open panel to its own full-width line right
-     after its card, instead of taking a slot next to another card. */
-  tbody tr.xc-row:has(.xc-panel.open) { display: block; flex-basis: 100%; }
-  tr.xc-row td { padding: 0 !important; }
-  tr.xc-row .xc-panel { margin: 0; }
-
-  table td {
-    display: block;
-    border-bottom: none;
-    padding: 3px 0 !important;
-    white-space: normal;
-    position: static !important;
-    background: transparent !important;
-    box-shadow: none !important;
-    width: auto !important;
-    min-width: 0 !important;
-    max-width: none !important;
-    left: auto !important;
-  }
-
   .model2-sci-link { pointer-events: none; }
   .model2-sci-link .model2-sci { color: var(--muted); text-decoration: none; }
-
-  /* card header: checkbox, verdict pill, species (grows, absorbing slack), ID, play button */
-  td:nth-child(1) { order: 1; }
-  td:nth-child(2) { order: 2; }
-  td:nth-child(3) { order: 3; flex: 1 1 140px; }
-  td:nth-child(4) { order: 4; flex: 0 0 auto; font-size: 0.75rem; color: var(--muted); }
-  td:nth-child(10) { order: 5; }
-  td:nth-child(1) input[type=checkbox] { width: 20px; height: 20px; }
-
-  /* detail line: Date/time + Orig. model + Orig. conf. share one row */
-  td:nth-child(5), td:nth-child(6), td:nth-child(7),
-  td:nth-child(8), td:nth-child(9) {
-    font-size: 0.8rem;
-    color: var(--muted);
-  }
-  /* Large % basis (not just flex-grow) so the wrap decision — which uses
-     each item's basis, not its final grown size — always treats the
-     header row as full and pushes this onto its own line, at any width. */
-  td:nth-child(5) { flex: 1 1 60%; order: 6; }
-  td:nth-child(6), td:nth-child(7) { flex: 0 0 auto; }
-  td:nth-child(6) { order: 7; }
-  td:nth-child(7) { order: 8; }
-  td:nth-child(8), td:nth-child(9) { flex-basis: calc(50% - 5px); }
-  td:nth-child(8) { order: 9; }
-  td:nth-child(9) { order: 10; }
-
-  .model2-cell {
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--bg);
-    padding: 8px !important;
-  }
-
-  td[data-label]::before {
-    content: attr(data-label) ": ";
-    font-weight: 600;
-    color: var(--fg);
-  }
-  td:nth-child(1)::before, td:nth-child(2)::before,
-  td:nth-child(3)::before, td:nth-child(6)::before,
-  td:nth-child(7)::before, td:nth-child(10)::before {
-    content: none;
-  }
-  td:nth-child(4)::before {
-    content: "#";
-    font-weight: 400;
-    color: var(--muted);
-  }
 
   #player-bar {
     position: fixed;
@@ -815,25 +647,7 @@
 </div>
 
 <div id="candidates-view">
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th><input type="checkbox" id="select-all" title="Select all visible rows"></th>
-          <th data-sort="overall_verdict">Overall</th>
-          <th data-sort="species">Species</th>
-          <th data-sort="detection_id">ID</th>
-          <th data-sort="detected_at_local">Date/time</th>
-          <th data-sort="model">Orig. model</th>
-          <th data-sort="confidence">Orig. conf.</th>
-          <th data-sort="bn_verdict">BirdNET (2nd)</th>
-          <th data-sort="pc_verdict">Perch (2nd)</th>
-          <th>Play</th>
-        </tr>
-      </thead>
-      <tbody id="rows"></tbody>
-    </table>
-  </div>
+  <div class="card-list" id="rows"></div>
 </div>
 
 <div id="locked-view" hidden>
@@ -846,7 +660,7 @@
   </div>
   <div class="subtitle" id="locked-subtitle"></div>
   <div class="subtitle sub" id="locked-status"></div>
-  <div class="locked-list" id="locked-rows"></div>
+  <div class="card-list" id="locked-rows"></div>
 </div>
 
 <!-- Shared bulk-action bar: same buttons drive both views via
@@ -1186,29 +1000,6 @@ function xenoCantoUrl(species) {
   return `https://xeno-canto.org/species/${encodeURIComponent(species.replace(/ /g, "-"))}`;
 }
 
-function model2Cell(v, label) {
-  const detail = v.top_species
-    ? `<div class="model2-detail-row">` +
-        `<div class="model2-names">` +
-          `<a class="model2-sci-link" href="${xenoCantoUrl(v.top_species)}" target="_blank" rel="noopener"><span class="model2-sci">${v.top_species}</span></a>` +
-          `<span class="model2-common">${v.top_common_name || ""}</span>` +
-        `</div>` +
-        `<button type="button" class="xc-toggle" data-species="${v.top_species}" title="Reference recordings from xeno-canto">` +
-          `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14,3.23V5.29C16.89,6.15 19,8.83 19,12C19,15.17 16.89,17.84 14,18.7V20.77C18,19.86 21,16.28 21,12C21,7.72 18,4.14 14,3.23M16.5,12C16.5,10.23 15.5,8.71 14,7.97V16C15.5,15.29 16.5,13.76 16.5,12M3,9V15H7L12,20V4L7,9H3Z"/></svg>` +
-        `</button>` +
-      `</div>`
-    : "";
-  return `<td class="model2-cell" data-label="${label}">${pill(v.verdict)} <span class="sub">${fmtConf(v.top_confidence)}</span>${detail}</td>`;
-}
-
-// Same as model2Cell but as a <div> instead of a <td> (locked cards aren't
-// a table), with an explicit text label since it can't rely on the
-// td[data-label]::before CSS trick. The xc-toggle button here shares its
-// panel with its sibling model2Box in the same card (see renderLocked's
-// single trailing .xc-panel) rather than a per-table-row sibling <tr> --
-// note .model2-sci-link itself is pointer-events:none in the mobile card
-// layout (candidates included), so the toggle button is the only way to
-// reach xeno-canto from a card, not the species name text.
 function model2Box(v, label) {
   const detail = v.top_species
     ? `<div class="model2-detail-row">` +
@@ -1221,9 +1012,44 @@ function model2Box(v, label) {
         `</button>` +
       `</div>`
     : "";
-  return `<div class="model2-cell locked-card-model2">` +
+  return `<div class="model2-cell card-model2">` +
     `<span class="sub">${label}</span> ${pill(v.verdict)} <span class="sub">${fmtConf(v.top_confidence)}</span>${detail}` +
   `</div>`;
+}
+
+// Single card template shared by both views (mode: "candidate" | "locked").
+// Candidates show the overall-verdict pill + auto-apply icon and get their
+// left-border color from overall_verdict; locked cards show origin+status
+// pills instead and get their left-border color from verified status.
+// Locked detections are fetched once (unscoped by confirm-threshold) and
+// recomputed live as the threshold slider moves, matching what renderLocked
+// already did before this was extracted; candidates come pre-computed from
+// the server since /api/candidates is called with the threshold as a query
+// param (see getRarityParams), so no recompute happens for that mode.
+function cardHtml(r, mode) {
+  const isLocked = mode === "locked";
+  const bn = isLocked ? recomputeModelVerdict(r.verify_birdnet_v24, r.species, getConfirmThreshold()) : r.verify_birdnet_v24;
+  const pc = isLocked ? recomputeModelVerdict(r.verify_perch_v2, r.species, getConfirmThreshold()) : r.verify_perch_v2;
+  const clipAttr = r.clip_name
+    ? `data-clip="${r.clip_name}" data-label="${r.common_name} #${r.detection_id}" data-id="${r.detection_id}" data-begin="${r.begin_time ?? ""}" data-end="${r.end_time ?? ""}" data-species="${escapeHtml(r.common_name)}" data-conf="${r.confidence ?? ""}"`
+    : "";
+  const sciLine = r.common_name !== r.species ? `<span class="species-sci">${r.species}</span>` : "";
+  const reviewUrl = `${birdnetgoWebUrl}/ui/detections/${r.detection_id}?tab=review`;
+  const statusPills = isLocked ? `${originPill(r.locked_via_validator)}${statusPill(r.verified)}` : overallPill(r.overall_verdict, r.detection_id);
+  const stateAttr = isLocked ? `data-status="${r.verified || "open"}"` : `data-verdict="${r.overall_verdict}"`;
+  return `<div class="card${r.clip_exists ? "" : " no-clip"}" data-id="${r.detection_id}" ${stateAttr}>
+      <input type="checkbox" class="row-select" data-id="${r.detection_id}" ${selectedIds.has(r.detection_id) ? "checked" : ""} ${playerLocked ? "disabled" : ""}>
+      ${statusPills}
+      <a class="species-link card-species" href="${reviewUrl}" target="_blank" rel="noopener"><span class="species-common">${r.common_name}</span>${sciLine}</a>
+      <span class="card-id mono">#${r.detection_id}</span>
+      ${r.clip_exists ? `<button class="play" ${clipAttr}>▶</button>` : "—"}
+      <span class="card-detail mono">${fmtDateTime(r.detected_at_local.slice(0, 16).replace("T", " "))}</span>
+      <span class="card-detail mono">${r.model}</span>
+      <span class="card-detail mono">conf ${fmtConf(r.confidence)}</span>
+      ${model2Box(bn, "BirdNET (2nd)")}
+      ${model2Box(pc, "Perch (2nd)")}
+      <div class="xc-panel"></div>
+    </div>`;
 }
 
 function fmtConf(c) {
@@ -1321,27 +1147,7 @@ function render() {
     return 0;
   });
 
-  const tbody = document.getElementById("rows");
-  tbody.innerHTML = rows.map((r, i) => {
-    const bn = r.verify_birdnet_v24, pc = r.verify_perch_v2;
-    const altClass = i % 2 === 1 ? " row-alt" : "";
-    const clipAttr = r.clip_name ? `data-clip="${r.clip_name}" data-label="${r.common_name} #${r.detection_id}" data-id="${r.detection_id}" data-begin="${r.begin_time ?? ""}" data-end="${r.end_time ?? ""}" data-species="${escapeHtml(r.common_name)}" data-conf="${r.confidence ?? ""}"` : "";
-    const sciLine = r.common_name !== r.species ? `<span class="species-sci">${r.species}</span>` : "";
-    const reviewUrl = `${birdnetgoWebUrl}/ui/detections/${r.detection_id}?tab=review`;
-    return `<tr class="${r.clip_exists ? "" : "no-clip"}${altClass}" data-verdict="${r.overall_verdict}">
-      <td data-label="Select"><input type="checkbox" class="row-select" data-id="${r.detection_id}" ${selectedIds.has(r.detection_id) ? "checked" : ""} ${playerLocked ? "disabled" : ""}></td>
-      <td data-label="Overall">${r.locked_via_validator !== undefined ? originPill(r.locked_via_validator) : ""}${overallPill(r.overall_verdict, r.detection_id)}</td>
-      <td class="species-cell" data-label="Species"><a class="species-link" href="${reviewUrl}" target="_blank" rel="noopener"><span class="species-common">${r.common_name}</span>${sciLine}</a></td>
-      <td data-label="ID" class="mono">${r.detection_id}</td>
-      <td data-label="Date/time" class="mono">${fmtDateTime(r.detected_at_local.slice(0, 16).replace("T", " "))}</td>
-      <td data-label="Model">${r.model}</td>
-      <td data-label="Conf." class="mono">${fmtConf(r.confidence)}</td>
-      ${model2Cell(bn, "BirdNET (2nd)")}
-      ${model2Cell(pc, "Perch (2nd)")}
-      <td data-label="Play">${r.clip_exists ? `<button class="play" ${clipAttr}>▶</button>` : "—"}</td>
-    </tr>
-    <tr class="xc-row"><td colspan="10"><div class="xc-panel"></div></td></tr>`;
-  }).join("");
+  document.getElementById("rows").innerHTML = rows.map(r => cardHtml(r, "candidate")).join("");
 
   const filterSuffix = activeFilter === "all" ? "" : ` (${escapeHtml(FILTER_LABEL[activeFilter] || activeFilter)})`;
   const rareMax = document.getElementById("rare-max").value;
@@ -1380,20 +1186,16 @@ function updateSelectionUI(visibleRows) {
     document.getElementById("run-btn").disabled = count === 0;
   }
 
-  const selectAll = document.getElementById("select-all");
   const selectAllMobile = document.getElementById("select-all-mobile");
-  selectAll.disabled = playerLocked;
   selectAllMobile.disabled = playerLocked;
   if (visibleRows.length === 0) {
-    selectAll.checked = false;
-    selectAll.indeterminate = false;
+    selectAllMobile.checked = false;
+    selectAllMobile.indeterminate = false;
   } else {
     const selectedVisible = visibleRows.filter(r => selectedIds.has(r.detection_id)).length;
-    selectAll.checked = selectedVisible === visibleRows.length;
-    selectAll.indeterminate = selectedVisible > 0 && selectedVisible < visibleRows.length;
+    selectAllMobile.checked = selectedVisible === visibleRows.length;
+    selectAllMobile.indeterminate = selectedVisible > 0 && selectedVisible < visibleRows.length;
   }
-  selectAllMobile.checked = selectAll.checked;
-  selectAllMobile.indeterminate = selectAll.indeterminate;
 }
 
 function updateCounts(scoped) {
@@ -1472,38 +1274,14 @@ function originPill(lockedViaValidator) {
     : `<span class="pill origin-go" title="Locked (Go)">G</span>`;
 }
 
-// Card markup deliberately mirrors the candidate table's mobile card (same
-// checkbox + pill + species + id + play header, same detail line below) so
-// the two views look like one component. Per-row actions (Unlock/Accept/
-// False) live in the shared bottom bar instead, driven by selectedIds.
+// Card markup is shared with the candidates view via cardHtml() (mode:
+// "locked") so the two views are one component, not two that just look
+// alike. Per-row actions (Unlock/Accept/False) live in the shared bottom
+// bar instead, driven by selectedIds.
 function renderLocked() {
   updateLockedCounts();
-  const threshold = getConfirmThreshold();
   const rows = lockedData.filter(r => lockedMatchesFilter(r, lockedActiveFilter));
-  const container = document.getElementById("locked-rows");
-  container.innerHTML = rows.map(r => {
-    const bn = recomputeModelVerdict(r.verify_birdnet_v24, r.species, threshold);
-    const pc = recomputeModelVerdict(r.verify_perch_v2, r.species, threshold);
-    const clipAttr = r.clip_name
-      ? `data-clip="${r.clip_name}" data-label="${r.common_name} #${r.detection_id}" data-id="${r.detection_id}" data-begin="${r.begin_time ?? ""}" data-end="${r.end_time ?? ""}" data-species="${escapeHtml(r.common_name)}" data-conf="${r.confidence ?? ""}"`
-      : "";
-    const sciLine = r.common_name !== r.species ? `<span class="species-sci">${r.species}</span>` : "";
-    const reviewUrl = `${birdnetgoWebUrl}/ui/detections/${r.detection_id}?tab=review`;
-    return `<div class="locked-card${r.clip_exists ? "" : " no-clip"}" data-id="${r.detection_id}">
-      <input type="checkbox" class="row-select" data-id="${r.detection_id}" ${selectedIds.has(r.detection_id) ? "checked" : ""} ${playerLocked ? "disabled" : ""}>
-      ${originPill(r.locked_via_validator)}
-      ${statusPill(r.verified)}
-      <a class="species-link locked-card-species" href="${reviewUrl}" target="_blank" rel="noopener"><span class="species-common">${r.common_name}</span>${sciLine}</a>
-      <span class="locked-card-id mono">#${r.detection_id}</span>
-      ${r.clip_exists ? `<button class="play" ${clipAttr}>▶</button>` : "—"}
-      <span class="locked-card-detail mono">${fmtDateTime(r.detected_at_local.slice(0, 16).replace("T", " "))}</span>
-      <span class="locked-card-detail mono">${r.model}</span>
-      <span class="locked-card-detail mono">conf ${fmtConf(r.confidence)}</span>
-      ${model2Box(bn, "BirdNET (2nd)")}
-      ${model2Box(pc, "Perch (2nd)")}
-      <div class="xc-panel"></div>
-    </div>`;
-  }).join("");
+  document.getElementById("locked-rows").innerHTML = rows.map(r => cardHtml(r, "locked")).join("");
 
   document.getElementById("locked-subtitle").textContent =
     `Showing ${rows.length} of ${lockedData.length} locked detection(s)`;
@@ -1525,14 +1303,6 @@ document.querySelectorAll("#locked-tabs .tab").forEach(tab => {
     lockedActiveFilter = tab.dataset.lockfilter;
     renderLocked();
   });
-});
-
-document.getElementById("locked-rows").addEventListener("change", e => {
-  const cb = e.target.closest("input.row-select");
-  if (!cb) return;
-  const id = Number(cb.dataset.id);
-  if (cb.checked) selectedIds.add(id); else selectedIds.delete(id);
-  updateSelectionUI(lastVisibleLockedRows);
 });
 
 // Lock/Hold is the one bulk-action button whose verb flips with the view:
@@ -1691,19 +1461,15 @@ document.getElementById("refresh-btn").addEventListener("click", () => {
     .finally(() => { btn.disabled = false; });
 });
 
-document.getElementById("rows").addEventListener("change", e => {
+function handleRowSelectChange(e) {
   const cb = e.target.closest("input.row-select");
   if (!cb) return;
   const id = Number(cb.dataset.id);
   if (cb.checked) selectedIds.add(id); else selectedIds.delete(id);
-  updateSelectionUI(lastVisibleRows);
-});
-
-document.getElementById("select-all").addEventListener("change", e => {
-  if (e.target.checked) lastVisibleRows.forEach(r => selectedIds.add(r.detection_id));
-  else lastVisibleRows.forEach(r => selectedIds.delete(r.detection_id));
-  render();
-});
+  updateSelectionUI(viewMode === "locked" ? lastVisibleLockedRows : lastVisibleRows);
+}
+document.getElementById("rows").addEventListener("change", handleRowSelectChange);
+document.getElementById("locked-rows").addEventListener("change", handleRowSelectChange);
 
 document.getElementById("select-all-mobile").addEventListener("change", e => {
   if (viewMode === "locked") {
@@ -1909,6 +1675,7 @@ document.getElementById("menu-btn").addEventListener("click", () => {
 document.getElementById("search").addEventListener("input", render);
 document.getElementById("day").addEventListener("change", () => {
   const value = document.getElementById("day").value;
+  localStorage.setItem("birdnet_day", value);
   if (value === "__locked__") {
     setViewMode("locked");
     return;
@@ -1933,13 +1700,6 @@ document.querySelectorAll("#menu-panel .tab").forEach(tab => {
     document.querySelectorAll("#menu-panel .tab").forEach(t => t.classList.remove("active"));
     tab.classList.add("active");
     activeFilter = tab.dataset.filter;
-    render();
-  });
-});
-document.querySelectorAll("th[data-sort]").forEach(th => {
-  th.addEventListener("click", () => {
-    const key = th.dataset.sort;
-    if (sortKey === key) sortDir *= -1; else { sortKey = key; sortDir = 1; }
     render();
   });
 });
@@ -2057,23 +1817,16 @@ function toggleXenoCantoPanel(panel, species) {
     });
 }
 
-document.getElementById("rows").addEventListener("click", e => {
+// Each card shares one .xc-panel between its two xc-toggle buttons
+// (BirdNET/Perch) -- either one opens the same panel (see cardHtml).
+function handleXcToggleClick(e) {
   const btn = e.target.closest(".xc-toggle");
   if (!btn) return;
-  const panel = btn.closest("tr").nextElementSibling.querySelector(".xc-panel");
+  const panel = btn.closest(".card").querySelector(".xc-panel");
   toggleXenoCantoPanel(panel, btn.dataset.species);
-});
-
-// Locked cards share one .xc-panel per card (see renderLocked) instead of
-// a per-table-row sibling <tr> -- either of a card's two xc-toggle buttons
-// (BirdNET/Perch) opens the same panel, matching the table's one-panel-
-// per-row behavior.
-document.getElementById("locked-rows").addEventListener("click", e => {
-  const btn = e.target.closest(".xc-toggle");
-  if (!btn) return;
-  const panel = btn.closest(".locked-card").querySelector(".xc-panel");
-  toggleXenoCantoPanel(panel, btn.dataset.species);
-});
+}
+document.getElementById("rows").addEventListener("click", handleXcToggleClick);
+document.getElementById("locked-rows").addEventListener("click", handleXcToggleClick);
 
 document.getElementById("player-accept-btn").addEventListener("click", () => submitReview("correct", "Correct"));
 document.getElementById("player-false-positive-btn").addEventListener("click", () => submitReview("false_positive", "False Positive"));
@@ -2092,8 +1845,38 @@ document.addEventListener("click", e => {
   closePlayer();
 });
 
-Promise.all([loadCandidates(), loadDays(), loadConfig()])
-  .then(() => render())
+// Mobile browsers can trigger a full page reload from an overscroll
+// "pull to refresh" gesture; restoring the last day/view selection here
+// (mirroring the persistence in the #day change handler above) keeps that
+// from dumping the user back onto the default candidates view.
+const savedDay = localStorage.getItem("birdnet_day");
+
+// Row checkbox selections, and the active filter tab in each view, are
+// restored the same way. Selected ids that no longer exist in the freshly
+// fetched data self-prune (see loadCandidates' stillPresent check), so
+// it's safe to always restore the last selection/filter.
+activeFilter = localStorage.getItem("birdnet_active_filter") || "all";
+lockedActiveFilter = localStorage.getItem("birdnet_locked_active_filter") || "all";
+document.querySelectorAll("#menu-panel .tab").forEach(t => {
+  t.classList.toggle("active", t.dataset.filter === activeFilter);
+});
+document.querySelectorAll("#locked-tabs .tab").forEach(t => {
+  t.classList.toggle("active", t.dataset.lockfilter === lockedActiveFilter);
+});
+window.addEventListener("pagehide", () => {
+  localStorage.setItem("birdnet_selected_ids", JSON.stringify(Array.from(selectedIds)));
+  localStorage.setItem("birdnet_active_filter", activeFilter);
+  localStorage.setItem("birdnet_locked_active_filter", lockedActiveFilter);
+});
+
+Promise.all([loadCandidates(), loadDays(savedDay), loadConfig()])
+  .then(() => {
+    if (savedDay === "__locked__") setViewMode("locked");
+    // Restored after setViewMode, which otherwise clears selectedIds when
+    // landing directly in the locked view (see setViewMode's comment).
+    JSON.parse(localStorage.getItem("birdnet_selected_ids") || "[]").forEach(id => selectedIds.add(id));
+    render();
+  })
   .catch(err => {
     document.getElementById("subtitle").textContent = "Failed to load: " + err;
   });
