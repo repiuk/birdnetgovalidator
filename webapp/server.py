@@ -94,8 +94,10 @@ def merge(candidates, cache):
     # third button, not tied to Accept/False) -- surface that here too so
     # its card shows the same origin pill the Locked view would, instead of
     # that state only being visible over there. Omitted (not just False)
-    # for anything not locked, since "verified" status is meaningless for
-    # candidates (the base query excludes anything already reviewed).
+    # for anything not locked, so cardHtml can tell "not locked" apart from
+    # "locked via BirdNET-Go's own GUI" (False). The candidate's own
+    # `verified` field rides along from candidate_finder untouched -- it's
+    # None for everything except locked-and-already-reviewed rows.
     lock_status = locked_finder.get_locked_status_map()
     out = []
     for c in candidates:

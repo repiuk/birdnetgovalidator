@@ -22,8 +22,13 @@ the code in place in case that changes later.
 
 Detections already reviewed by the user in BirdNET-Go's own UI (present in
 `detection_reviews`, verified as either "correct" or "false_positive") are
-excluded from the base row set entirely, since a human has already made the
-call on them there.
+excluded from the base row set, since a human has already made the call on
+them there -- *unless* they're also locked. Locking means "hold this for a
+later second look", so a review verdict shouldn't make it vanish from the
+day it belongs to; those rows carry their `verified` value through so the
+card can show it. Locked detections outside the rolling window still only
+appear in the webapp's dedicated Locked view (see locked_finder.py) -- this
+stays scoped to recent detections.
 """
 
 import os
@@ -83,11 +88,14 @@ def fetch_window(con, days):
     cur.execute(
         """
         SELECT d.id, d.detected_at, d.begin_time, d.end_time, d.source_id,
-               d.model_id, l.scientific_name, d.confidence, d.clip_name
+               d.model_id, l.scientific_name, d.confidence, d.clip_name,
+               dr.verified
         FROM detections d
         JOIN labels l ON l.id = d.label_id
+        LEFT JOIN detection_reviews dr ON dr.detection_id = d.id
         WHERE d.detected_at >= ?
-          AND d.id NOT IN (SELECT detection_id FROM detection_reviews)
+          AND (dr.detection_id IS NULL
+               OR d.id IN (SELECT detection_id FROM detection_locks))
         ORDER BY d.source_id, d.begin_time;
         """,
         (cutoff,),
@@ -107,7 +115,7 @@ def find_disagreements(rows, proximity_seconds):
         items.sort(key=lambda r: r[2])  # sort by begin_time
         n = len(items)
         for i, r in enumerate(items):
-            rid, ts, b1, e1, _, model, species, conf, clip = r
+            rid, ts, b1, e1, _, model, species, conf, clip, _verified = r
             if rid in used_in_pair:
                 continue
             matches = []
@@ -130,7 +138,7 @@ def find_disagreements(rows, proximity_seconds):
 def find_daily_rarities(rows, rare_min, rare_max):
     by_day_species = defaultdict(list)
     for r in rows:
-        rid, ts, b1, e1, src, model, species, conf, clip = r
+        rid, ts, b1, e1, src, model, species, conf, clip, _verified = r
         day = datetime.fromtimestamp(ts, tz=LOCAL_TZ).date()
         by_day_species[(day, species)].append(r)
     return {
@@ -146,7 +154,7 @@ def clip_info(clip_name):
 
 
 def row_to_candidate(r, reasons, extra=None):
-    rid, ts, b1, e1, src, model, species, conf, clip = r
+    rid, ts, b1, e1, src, model, species, conf, clip, verified = r
     path, exists = clip_info(clip)
     return {
         "detection_id": rid,
@@ -160,6 +168,10 @@ def row_to_candidate(r, reasons, extra=None):
         "clip_name": clip,
         "clip_path": path,
         "clip_exists": exists,
+        # Only ever non-None for a locked detection -- fetch_window excludes
+        # already-reviewed detections unless they're locked (locking means
+        # "hold for a second look", so a review verdict shouldn't hide it).
+        "verified": verified,
         "reasons": list(reasons),
         **(extra or {}),
     }

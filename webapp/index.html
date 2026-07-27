@@ -1050,7 +1050,21 @@ function cardHtml(r, mode) {
     : "";
   const sciLine = r.common_name !== r.species ? `<span class="species-sci">${r.species}</span>` : "";
   const reviewUrl = `${birdnetgoWebUrl}/ui/detections/${r.detection_id}?tab=review`;
-  const statusPills = isLocked ? `${originPill(r.locked_via_validator)}${statusPill(r.verified)}` : overallPill(r.overall_verdict, r.detection_id);
+  // A candidate can independently also be locked (Hold is a separate button,
+  // not tied to Accept/False), so candidates show the same G/V origin pill
+  // the Locked view does whenever they happen to be locked -- server.py's
+  // merge() only sets locked_via_validator for those, hence the undefined
+  // check. Locking/unlocking itself stays a Locked-view action; here it's
+  // purely an at-a-glance marker.
+  const lockPill = r.locked_via_validator !== undefined ? originPill(r.locked_via_validator) : "";
+  // Candidates are normally all unreviewed, so no status pill -- except a
+  // locked one, which stays in the day list even after being reviewed (see
+  // candidate_finder.fetch_window). Show its verdict there so it can't be
+  // mistaken for something still awaiting a decision.
+  const reviewedPill = !isLocked && r.verified ? statusPill(r.verified) : "";
+  const statusPills = isLocked
+    ? `${originPill(r.locked_via_validator)}${statusPill(r.verified)}`
+    : `${lockPill}${reviewedPill}${overallPill(r.overall_verdict, r.detection_id)}`;
   const stateAttr = isLocked ? `data-status="${r.verified || "open"}"` : `data-verdict="${r.overall_verdict}"`;
   return `<div class="card${r.clip_exists ? "" : " no-clip"}" data-id="${r.detection_id}" ${stateAttr}>
       <input type="checkbox" class="row-select" data-id="${r.detection_id}" ${selectedIds.has(r.detection_id) ? "checked" : ""} ${playerLocked ? "disabled" : ""}>
