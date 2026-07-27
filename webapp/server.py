@@ -63,10 +63,12 @@ def load_common_names():
 COMMON_NAMES = load_common_names()
 
 
-def load_candidates(rare_min=1, rare_max=5):
+def load_candidates(rare_min=1, rare_max=5, rarity_enabled=False):
     # Always computed live from the DB — a static snapshot goes stale within
     # minutes since new detections stream in continuously.
-    return candidate_finder.get_candidates(days=7, rare_min=rare_min, rare_max=rare_max)
+    return candidate_finder.get_candidates(
+        days=7, rare_min=rare_min, rare_max=rare_max, rarity_enabled=rarity_enabled
+    )
 
 
 def load_cache():
@@ -276,17 +278,18 @@ class Handler(BaseHTTPRequestHandler):
     def _rarity_params(self, qs):
         rare_min = int(qs.get("rare_min", [1])[0])
         rare_max = int(qs.get("rare_max", [5])[0])
-        return rare_min, rare_max
+        rarity_enabled = qs.get("rarity_enabled", ["0"])[0] == "1"
+        return rare_min, rare_max, rarity_enabled
 
     def _serve_candidates(self, qs):
-        rare_min, rare_max = self._rarity_params(qs)
-        candidates = load_candidates(rare_min, rare_max)
+        rare_min, rare_max, rarity_enabled = self._rarity_params(qs)
+        candidates = load_candidates(rare_min, rare_max, rarity_enabled)
         cache = load_cache()
         self._send_json(merge(candidates, cache))
 
     def _serve_days(self, qs):
-        rare_min, rare_max = self._rarity_params(qs)
-        candidates = load_candidates(rare_min, rare_max)
+        rare_min, rare_max, rarity_enabled = self._rarity_params(qs)
+        candidates = load_candidates(rare_min, rare_max, rarity_enabled)
         cache = load_cache()
         self._send_json(days_summary(candidates, cache))
 
@@ -337,7 +340,8 @@ class Handler(BaseHTTPRequestHandler):
         elif day:
             rare_min = int(payload.get("rare_min", 1))
             rare_max = int(payload.get("rare_max", 5))
-            candidates = load_candidates(rare_min, rare_max)
+            rarity_enabled = bool(payload.get("rarity_enabled", False))
+            candidates = load_candidates(rare_min, rare_max, rarity_enabled)
             to_process = [c for c in candidates if local_day(c) == day and c["clip_exists"]]
         else:
             self._send_json({"error": "missing 'day' or 'detection_ids'"}, status=400)

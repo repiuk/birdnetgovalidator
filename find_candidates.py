@@ -15,6 +15,7 @@ import candidate_finder
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--days", type=int, default=7, help="rolling window size in days")
+    ap.add_argument("--rarity", action="store_true", help="filter to a daily-rarity range instead of all detections")
     ap.add_argument("--rare-min", type=int, default=1)
     ap.add_argument("--rare-max", type=int, default=5)
     ap.add_argument("--out", type=str, default=None, help="write candidate list as JSON to this path")
@@ -24,6 +25,7 @@ def main():
         days=args.days,
         rare_min=args.rare_min,
         rare_max=args.rare_max,
+        rarity_enabled=args.rarity,
     )
 
     missing_clips = [c for c in result if c["clip_name"] and not c["clip_exists"]]

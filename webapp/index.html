@@ -639,7 +639,7 @@
     </div>
     <div class="menu-settings">
       <label class="force-check"><input type="checkbox" id="force"> re-run cached</label>
-      <label class="force-check">rarity min 1&ndash;max <input type="number" id="rare-max" value="5" min="1" step="1" class="param"></label>
+      <label class="force-check"><input type="checkbox" id="rarity-enabled"> rarity min 1&ndash;max <input type="number" id="rare-max" value="5" min="1" step="1" class="param" disabled></label>
       <label class="force-check">confirm ≥ <input type="number" id="confirm-threshold" value="0.8" min="0" max="1" step="0.01" class="param"></label>
       <button id="cleanup-btn" class="btn-run" title="Remove cache entries and birda result files for detections that have aged out of the 7-day candidate window">🧹 Cleanup</button>
     </div>
@@ -1070,9 +1070,13 @@ function getConfirmThreshold() {
   return Number.isFinite(v) ? v : 0.8;
 }
 
+function isRarityEnabled() {
+  return document.getElementById("rarity-enabled").checked;
+}
+
 function getRarityParams() {
   const max = document.getElementById("rare-max").value;
-  return new URLSearchParams({ rare_min: 1, rare_max: max });
+  return new URLSearchParams({ rare_min: 1, rare_max: max, rarity_enabled: isRarityEnabled() ? "1" : "0" });
 }
 
 function recomputeModelVerdict(v, originalSpecies, threshold) {
@@ -1151,13 +1155,14 @@ function render() {
 
   const filterSuffix = activeFilter === "all" ? "" : ` (${escapeHtml(FILTER_LABEL[activeFilter] || activeFilter)})`;
   const rareMax = document.getElementById("rare-max").value;
+  const rarityScope = isRarityEnabled() ? `rarity 1–${rareMax}` : "all detections";
   const dayScope = isAllDays()
     ? "(all days)"
     : `for ${escapeHtml(fmtDate(document.getElementById("day").value))}`;
   document.getElementById("subtitle").innerHTML =
     `<span class="nowrap">Showing ${rows.length}${filterSuffix} of ${scoped.length} candidates</span> ` +
     `<span class="nowrap">${dayScope}</span> · ` +
-    `<span class="nowrap">rarity 1–${rareMax}</span> · ` +
+    `<span class="nowrap">${rarityScope}</span> · ` +
     `<span class="nowrap">confirm ≥ ${getConfirmThreshold().toFixed(2)}</span>`;
 
   lastVisibleRows = rows;
@@ -1414,6 +1419,7 @@ function runBirda() {
       confirm_threshold: getConfirmThreshold(),
       rare_min: 1,
       rare_max: document.getElementById("rare-max").value,
+      rarity_enabled: isRarityEnabled(),
     }),
   })
     .then(r => r.json())
@@ -1689,6 +1695,10 @@ document.getElementById("confirm-threshold").addEventListener("input", () => {
   if (viewMode === "locked") renderLocked();
 });
 document.getElementById("rare-max").addEventListener("change", () => Promise.all([loadCandidates(), loadDays()]));
+document.getElementById("rarity-enabled").addEventListener("change", e => {
+  document.getElementById("rare-max").disabled = !e.target.checked;
+  Promise.all([loadCandidates(), loadDays()]);
+});
 // Scoped to #menu-panel: the Locked view's tabs also carry a bare .tab
 // class, and an unscoped querySelectorAll(".tab") here used to also catch
 // those clicks (setting activeFilter to undefined via a missing

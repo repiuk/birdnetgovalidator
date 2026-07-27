@@ -3,9 +3,14 @@
 Shared candidate-selection logic: find detections that need independent
 verification, computed live from the database (never a stale snapshot).
 
-Active trigger, over a rolling window (default: last 7 days):
-  - Daily rarity: a species with 1-5 total detections on a given local
-    calendar day (Europe/Amsterdam).
+By default, over a rolling window (default: last 7 days), every detection
+is a candidate -- species-level noise is expected to already be filtered
+out via excluded_species.txt, so there's no rarity gate by default.
+
+Optional trigger (rarity_enabled=True):
+  - Daily rarity: a species with rare_min-rare_max total detections on a
+    given local calendar day (Europe/Amsterdam). Useful as an extra lens
+    on top of the default "everything" view, not as the sole gate.
 
 Cross-model disagreement (BirdNET vs Perch firing on the same audio source
 within a short time proximity but naming different species) is implemented
@@ -160,13 +165,20 @@ def row_to_candidate(r, reasons, extra=None):
     }
 
 
-def get_candidates(days=7, rare_min=1, rare_max=5):
+def get_candidates(days=7, rare_min=1, rare_max=5, rarity_enabled=False):
     con = connect_ro()
     rows = fetch_window(con, days)
 
     excluded = load_excluded_species()
     if excluded:
         rows = [r for r in rows if r[6] not in excluded]
+
+    if not rarity_enabled:
+        # excluded_species.txt is doing the real filtering now, so by
+        # default every detection in the window is a candidate -- the
+        # daily-rarity trigger below is opt-in, not the sole gate.
+        candidates = {r[0]: row_to_candidate(r, ["all"]) for r in rows}
+        return sorted(candidates.values(), key=lambda c: c["detected_at_local"])
 
     rarities = find_daily_rarities(rows, rare_min, rare_max)
 
