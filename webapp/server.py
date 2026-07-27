@@ -290,8 +290,16 @@ class Handler(BaseHTTPRequestHandler):
 
     def _serve_locked(self):
         detections = locked_finder.get_locked_detections()
+        cache = load_cache()
         for d in detections:
             d["common_name"] = COMMON_NAMES.get(d["species"], d["species"])
+            cached = cache.get(str(d["detection_id"]))
+            if cached:
+                d["verify_birdnet_v24"] = with_top_common_name(cached["verify_birdnet_v24"])
+                d["verify_perch_v2"] = with_top_common_name(cached["verify_perch_v2"])
+            else:
+                d["verify_birdnet_v24"] = NOT_RUN
+                d["verify_perch_v2"] = NOT_RUN
         self._send_json(detections)
 
     def _handle_run(self):

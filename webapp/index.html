@@ -200,30 +200,31 @@
     gap: 10px;
     margin-top: 10px;
   }
+  /* Mirrors the candidate table's mobile-card layout (tbody tr below) so
+     the two views read as the same design, not two different components. */
   .locked-card {
-    flex: 1 1 340px;
-    max-width: 420px;
     display: flex;
-    flex-direction: column;
-    gap: 6px;
+    flex: 0 1 420px;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 10px;
+    row-gap: 3px;
     border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--surface);
+    border-radius: 10px;
     padding: 10px 12px;
+    background: var(--surface);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   }
   .locked-card.no-clip { opacity: 0.6; }
-  .locked-card-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-  .locked-card-species { font-weight: 600; }
-  .locked-card-sci { color: var(--muted); font-size: 0.78rem; margin-left: 6px; }
-  .locked-card-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 0.78rem; color: var(--muted); }
-  .badge { display: inline-flex; align-items: center; border-radius: 9px; padding: 1px 7px; font-size: 0.72rem; font-weight: 600; }
-  .badge.origin-go { background: var(--manual-bg); color: var(--manual-fg); }
-  .badge.origin-validator { background: var(--lock-bg); color: var(--lock-fg); }
-  .badge.status-accept { background: var(--confirm-bg); color: var(--confirm-fg); }
-  .badge.status-false { background: var(--disagree-bg); color: var(--disagree-fg); }
-  .badge.status-open { background: var(--nodet-bg); color: var(--nodet-fg); }
-  .locked-card-actions { display: flex; flex-wrap: wrap; gap: 6px; }
-  .locked-card-actions button { padding: 4px 10px; font-size: 0.82rem; min-height: 32px; }
+  .locked-card input[type=checkbox] { width: 20px; height: 20px; }
+  .locked-card-species { flex: 1 1 140px; }
+  .locked-card-id, .locked-card-detail { flex: 0 0 auto; font-size: 0.78rem; color: var(--muted); }
+  .locked-card-model2 { flex: 1 1 calc(50% - 5px); }
+  .pill.origin-go { background: var(--manual-bg); color: var(--manual-fg); }
+  .pill.origin-validator { background: var(--lock-bg); color: var(--lock-fg); }
+  .pill.status-accept { background: var(--confirm-bg); color: var(--confirm-fg); }
+  .pill.status-false { background: var(--disagree-bg); color: var(--disagree-fg); }
+  .pill.status-open { background: var(--nodet-bg); color: var(--nodet-fg); }
   select#day {
     padding: 8px 12px;
     border: 1px solid var(--border);
@@ -792,20 +793,6 @@
 </div>
 
 <div id="candidates-view">
-  <div class="toolbar toolbar-actions">
-    <div class="toolbar-actions-info" id="toolbar-actions-info">
-      <label class="compact select-all-mobile"><input type="checkbox" id="select-all-mobile" title="Select all visible rows"> Select all</label>
-      <span id="selection-count">No detections selected</span>
-      <span id="review-status" class="sub"></span>
-    </div>
-    <div class="toolbar-actions-buttons">
-      <button id="auto-btn" class="bulk-action btn-auto" disabled title="Write back all CC (auto-confirm) and DD (auto-reject) rows currently in the list">⚡ Auto</button>
-      <button id="lock-btn" class="bulk-action btn-lock" disabled title="Lock in BirdNET-Go for a later second look, independent of Accept/False">🔒 Hold</button>
-      <button id="accept-btn" class="bulk-action btn-accept" disabled>✓ Accept</button>
-      <button id="false-positive-btn" class="bulk-action btn-reject" disabled>✕ False</button>
-    </div>
-  </div>
-
   <div class="table-wrap">
     <table>
       <thead>
@@ -838,6 +825,23 @@
   <div class="subtitle" id="locked-subtitle"></div>
   <div class="subtitle sub" id="locked-status"></div>
   <div class="locked-list" id="locked-rows"></div>
+</div>
+
+<!-- Shared bulk-action bar: same buttons drive both views via
+     selectedIds, only the Lock/Hold button's label+verb flips per view
+     (see setViewMode). Auto only makes sense for candidate verdicts. -->
+<div class="toolbar toolbar-actions">
+  <div class="toolbar-actions-info" id="toolbar-actions-info">
+    <label class="compact select-all-mobile"><input type="checkbox" id="select-all-mobile" title="Select all visible rows"> Select all</label>
+    <span id="selection-count">No detections selected</span>
+    <span id="review-status" class="sub"></span>
+  </div>
+  <div class="toolbar-actions-buttons">
+    <button id="auto-btn" class="bulk-action btn-auto" disabled title="Write back all CC (auto-confirm) and DD (auto-reject) rows currently in the list">⚡ Auto</button>
+    <button id="lock-btn" class="bulk-action btn-lock" disabled title="Lock in BirdNET-Go for a later second look, independent of Accept/False">🔒 Hold</button>
+    <button id="accept-btn" class="bulk-action btn-accept" disabled>✓ Accept</button>
+    <button id="false-positive-btn" class="bulk-action btn-reject" disabled>✕ False</button>
+  </div>
 </div>
 
 <div id="player-bar">
@@ -909,6 +913,7 @@ let sortDir = 1;
 let activeFilter = "all";
 let selectedIds = new Set();
 let lastVisibleRows = [];
+let lastVisibleLockedRows = [];
 let lastScopedRows = [];
 let playerLocked = false;
 let birdnetgoWebUrl = "";
@@ -1173,6 +1178,22 @@ function model2Cell(v, label) {
   return `<td class="model2-cell" data-label="${label}">${pill(v.verdict)} <span class="sub">${fmtConf(v.top_confidence)}</span>${detail}</td>`;
 }
 
+// Same verdict pill + confidence + species link as model2Cell, minus the
+// xeno-canto expand toggle (that relies on a sibling <tr class="xc-row">,
+// which locked cards -- plain <div>s -- don't have; the species link still
+// opens xeno-canto directly in a new tab).
+function model2Box(v, label) {
+  const detail = v.top_species
+    ? `<div class="model2-names">` +
+        `<a class="model2-sci-link" href="${xenoCantoUrl(v.top_species)}" target="_blank" rel="noopener"><span class="model2-sci">${v.top_species}</span></a>` +
+        `<span class="model2-common">${v.top_common_name || ""}</span>` +
+      `</div>`
+    : "";
+  return `<div class="model2-cell locked-card-model2">` +
+    `<span class="sub">${label}</span> ${pill(v.verdict)} <span class="sub">${fmtConf(v.top_confidence)}</span>${detail}` +
+  `</div>`;
+}
+
 function fmtConf(c) {
   return c === null || c === undefined ? "—" : c.toFixed(2);
 }
@@ -1398,50 +1419,53 @@ function updateLockedCounts() {
   }
 }
 
-function statusBadge(verified) {
-  if (verified === "correct") return `<span class="badge status-accept">Verified Accept</span>`;
-  if (verified === "false_positive") return `<span class="badge status-false">Verified False</span>`;
-  return `<span class="badge status-open">Unverified</span>`;
+function statusPill(verified) {
+  if (verified === "correct") return `<span class="pill status-accept" title="Verified Accept">✓</span>`;
+  if (verified === "false_positive") return `<span class="pill status-false" title="Verified False">✕</span>`;
+  return `<span class="pill status-open" title="Unverified">?</span>`;
 }
 
-function originBadge(lockedViaValidator) {
+function originPill(lockedViaValidator) {
   return lockedViaValidator
-    ? `<span class="badge origin-validator">Locked (Validator)</span>`
-    : `<span class="badge origin-go">Locked (Go)</span>`;
+    ? `<span class="pill origin-validator" title="Locked (Validator)">V</span>`
+    : `<span class="pill origin-go" title="Locked (Go)">G</span>`;
 }
 
+// Card markup deliberately mirrors the candidate table's mobile card (same
+// checkbox + pill + species + id + play header, same detail line below) so
+// the two views look like one component. Per-row actions (Unlock/Accept/
+// False) live in the shared bottom bar instead, driven by selectedIds.
 function renderLocked() {
   updateLockedCounts();
+  const threshold = getConfirmThreshold();
   const rows = lockedData.filter(r => lockedMatchesFilter(r, lockedActiveFilter));
   const container = document.getElementById("locked-rows");
   container.innerHTML = rows.map(r => {
+    const bn = recomputeModelVerdict(r.verify_birdnet_v24, r.species, threshold);
+    const pc = recomputeModelVerdict(r.verify_perch_v2, r.species, threshold);
     const clipAttr = r.clip_name
       ? `data-clip="${r.clip_name}" data-label="${r.common_name} #${r.detection_id}" data-id="${r.detection_id}" data-begin="${r.begin_time ?? ""}" data-end="${r.end_time ?? ""}" data-species="${escapeHtml(r.common_name)}" data-conf="${r.confidence ?? ""}"`
       : "";
-    const sciLine = r.common_name !== r.species ? `<span class="locked-card-sci">${r.species}</span>` : "";
+    const sciLine = r.common_name !== r.species ? `<span class="species-sci">${r.species}</span>` : "";
     const reviewUrl = `${birdnetgoWebUrl}/ui/detections/${r.detection_id}?tab=review`;
     return `<div class="locked-card${r.clip_exists ? "" : " no-clip"}" data-id="${r.detection_id}">
-      <div class="locked-card-top">
-        <span><a class="species-link" href="${reviewUrl}" target="_blank" rel="noopener"><span class="species-common locked-card-species">${r.common_name}</span></a>${sciLine}</span>
-        <span class="mono sub">#${r.detection_id}</span>
-      </div>
-      <div class="locked-card-meta">
-        <span>${fmtDateTime(r.detected_at_local.slice(0, 16).replace("T", " "))}</span>
-        <span class="mono">conf ${fmtConf(r.confidence)}</span>
-        ${originBadge(r.locked_via_validator)}
-        ${statusBadge(r.verified)}
-      </div>
-      <div class="locked-card-actions">
-        ${r.clip_exists ? `<button class="play" ${clipAttr}>▶ Play</button>` : ""}
-        <button class="bulk-action btn-lock locked-unlock-btn" data-id="${r.detection_id}">🔓 Unlock</button>
-        <button class="bulk-action btn-accept locked-accept-btn" data-id="${r.detection_id}">✓ Accept</button>
-        <button class="bulk-action btn-reject locked-false-btn" data-id="${r.detection_id}">✕ False</button>
-      </div>
+      <input type="checkbox" class="row-select" data-id="${r.detection_id}" ${selectedIds.has(r.detection_id) ? "checked" : ""} ${playerLocked ? "disabled" : ""}>
+      ${originPill(r.locked_via_validator)}
+      ${statusPill(r.verified)}
+      <a class="species-link locked-card-species" href="${reviewUrl}" target="_blank" rel="noopener"><span class="species-common">${r.common_name}</span>${sciLine}</a>
+      <span class="locked-card-id mono">#${r.detection_id}</span>
+      ${r.clip_exists ? `<button class="play" ${clipAttr}>▶</button>` : "—"}
+      <span class="locked-card-detail mono">${fmtDateTime(r.detected_at_local.slice(0, 16).replace("T", " "))}</span>
+      <span class="locked-card-detail mono">conf ${fmtConf(r.confidence)}</span>
+      ${model2Box(bn, "BirdNET (2nd)")}
+      ${model2Box(pc, "Perch (2nd)")}
     </div>`;
   }).join("");
 
   document.getElementById("locked-subtitle").textContent =
     `Showing ${rows.length} of ${lockedData.length} locked detection(s)`;
+  lastVisibleLockedRows = rows;
+  updateSelectionUI(rows);
 }
 
 function loadLocked() {
@@ -1460,27 +1484,60 @@ document.querySelectorAll("#locked-tabs .tab").forEach(tab => {
   });
 });
 
-document.getElementById("locked-rows").addEventListener("click", e => {
-  const id = e.target.closest("button")?.dataset.id;
-  if (!id) return;
-  if (e.target.closest(".locked-unlock-btn")) submitLock(false, [Number(id)], true);
-  else if (e.target.closest(".locked-accept-btn")) submitReview("correct", "Correct", [Number(id)]);
-  else if (e.target.closest(".locked-false-btn")) submitReview("false_positive", "False Positive", [Number(id)]);
+document.getElementById("locked-rows").addEventListener("change", e => {
+  const cb = e.target.closest("input.row-select");
+  if (!cb) return;
+  const id = Number(cb.dataset.id);
+  if (cb.checked) selectedIds.add(id); else selectedIds.delete(id);
+  updateSelectionUI(lastVisibleLockedRows);
 });
+
+// Lock/Hold is the one bulk-action button whose verb flips with the view:
+// candidates get "Hold" (lock for later), the locked view gets "Unlock".
+function updateLockButtonLabel() {
+  const locking = viewMode !== "locked";
+  const label = locking ? "🔒 Hold" : "🔓 Unlock";
+  const title = locking
+    ? "Lock in BirdNET-Go for a later second look, independent of Accept/False"
+    : "Unlock in BirdNET-Go";
+  for (const id of ["lock-btn", "player-lock-btn"]) {
+    const btn = document.getElementById(id);
+    btn.textContent = label;
+    btn.title = title;
+  }
+}
 
 function setViewMode(mode) {
   viewMode = mode;
   const btn = document.getElementById("locked-view-btn");
+  document.getElementById("auto-btn").hidden = mode === "locked";
+  // review-status lives in the now-shared bottom bar, so clear stale text
+  // from the other view instead of leaving it visible across a switch.
+  document.getElementById("review-status").textContent = "";
+  document.getElementById("locked-status").textContent = "";
+
+  // Selection is one global "N selected" in the shared bottom bar, but
+  // candidates and locked cards are different lists -- carrying a selection
+  // across a switch left invisible items selected (and stale-checked
+  // checkboxes on cards that hadn't been re-rendered), so start clean.
+  selectedIds.clear();
+  document.querySelectorAll("input.row-select:checked").forEach(cb => { cb.checked = false; });
+
   if (mode === "locked") {
     document.getElementById("candidates-view").hidden = true;
     document.getElementById("locked-view").hidden = false;
     btn.textContent = "← Candidates";
-    if (lockedData.length === 0) loadLocked(); else renderLocked();
+    // Always refetch (not just on first visit) -- locks/unlocks made
+    // directly in BirdNET-Go's own GUI, or a moment ago via this webapp,
+    // wouldn't otherwise show up until a full page reload.
+    loadLocked();
   } else {
     document.getElementById("candidates-view").hidden = false;
     document.getElementById("locked-view").hidden = true;
     btn.textContent = "🔒 Locked";
+    updateSelectionUI(lastVisibleRows);
   }
+  updateLockButtonLabel();
 }
 
 document.getElementById("locked-view-btn").addEventListener("click", () => {
@@ -1543,10 +1600,9 @@ document.getElementById("run-btn-main").addEventListener("click", runBirda);
 document.getElementById("refresh-btn").addEventListener("click", () => {
   const btn = document.getElementById("refresh-btn");
   const status = document.getElementById("run-status");
-  const selectedDay = document.getElementById("day").value;
   btn.disabled = true;
   status.textContent = "Refreshing…";
-  Promise.all([loadCandidates(), loadDays(selectedDay)])
+  refreshActiveView()
     .then(() => { status.textContent = "Refreshed."; })
     .catch(err => { status.textContent = "Error: " + err; })
     .finally(() => { btn.disabled = false; });
@@ -1567,9 +1623,15 @@ document.getElementById("select-all").addEventListener("change", e => {
 });
 
 document.getElementById("select-all-mobile").addEventListener("change", e => {
-  if (e.target.checked) lastVisibleRows.forEach(r => selectedIds.add(r.detection_id));
-  else lastVisibleRows.forEach(r => selectedIds.delete(r.detection_id));
-  render();
+  if (viewMode === "locked") {
+    if (e.target.checked) lastVisibleLockedRows.forEach(r => selectedIds.add(r.detection_id));
+    else lastVisibleLockedRows.forEach(r => selectedIds.delete(r.detection_id));
+    renderLocked();
+  } else {
+    if (e.target.checked) lastVisibleRows.forEach(r => selectedIds.add(r.detection_id));
+    else lastVisibleRows.forEach(r => selectedIds.delete(r.detection_id));
+    render();
+  }
 });
 
 function customConfirm(message) {
@@ -1672,6 +1734,10 @@ function refreshActiveView() {
   return viewMode === "locked" ? loadLocked() : Promise.all([loadCandidates(), loadDays()]);
 }
 
+function currentVisibleRows() {
+  return viewMode === "locked" ? lastVisibleLockedRows : lastVisibleRows;
+}
+
 function setActionStatus(msg) {
   document.getElementById(viewMode === "locked" ? "locked-status" : "review-status").textContent = msg;
 }
@@ -1704,7 +1770,7 @@ async function submitReview(verified, label, idsOverride) {
       return refreshActiveView();
     })
     .catch(err => { setActionStatus("Error: " + err); })
-    .finally(() => updateSelectionUI(lastVisibleRows));
+    .finally(() => updateSelectionUI(currentVisibleRows()));
 }
 
 document.getElementById("accept-btn").addEventListener("click", () => submitReview("correct", "Correct"));
@@ -1741,10 +1807,17 @@ async function submitLock(locked, idsOverride, skipConfirm) {
       return refreshActiveView();
     })
     .catch(err => { setActionStatus("Error: " + err); })
-    .finally(() => updateSelectionUI(lastVisibleRows));
+    .finally(() => updateSelectionUI(currentVisibleRows()));
 }
 
-document.getElementById("lock-btn").addEventListener("click", () => submitLock(true));
+// In the locked view, Unlock is low-risk and reversible (the whole point
+// of that view is fast browsing), so it skips the confirm dialog; Hold
+// (locking from candidates) keeps it since it's a less obviously-reversible
+// action to a first-time user.
+document.getElementById("lock-btn").addEventListener("click", () => {
+  const locking = viewMode !== "locked";
+  submitLock(locking, undefined, !locking);
+});
 
 document.getElementById("menu-btn").addEventListener("click", () => {
   document.getElementById("menu-panel").classList.toggle("open");
@@ -1755,11 +1828,20 @@ document.getElementById("day").addEventListener("change", () => {
   enforceDayScope();
   render();
 });
-document.getElementById("confirm-threshold").addEventListener("input", render);
+document.getElementById("confirm-threshold").addEventListener("input", () => {
+  render();
+  if (viewMode === "locked") renderLocked();
+});
 document.getElementById("rare-max").addEventListener("change", () => Promise.all([loadCandidates(), loadDays()]));
-document.querySelectorAll(".tab").forEach(tab => {
+// Scoped to #menu-panel: the Locked view's tabs also carry a bare .tab
+// class, and an unscoped querySelectorAll(".tab") here used to also catch
+// those clicks (setting activeFilter to undefined via a missing
+// data-filter, since locked tabs use data-lockfilter -- every candidate
+// row would then fail the filter and the list would render empty until
+// "All" was clicked again).
+document.querySelectorAll("#menu-panel .tab").forEach(tab => {
   tab.addEventListener("click", () => {
-    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    document.querySelectorAll("#menu-panel .tab").forEach(t => t.classList.remove("active"));
     tab.classList.add("active");
     activeFilter = tab.dataset.filter;
     render();
@@ -1809,7 +1891,7 @@ function closePlayer() {
   setNormalize(true);
   playerLocked = false;
   document.querySelectorAll("input.row-select").forEach(cb => { cb.disabled = false; });
-  updateSelectionUI(lastVisibleRows);
+  updateSelectionUI(currentVisibleRows());
 }
 
 document.getElementById("rows").addEventListener("click", e => {
@@ -1891,7 +1973,10 @@ document.getElementById("rows").addEventListener("click", e => {
 
 document.getElementById("player-accept-btn").addEventListener("click", () => submitReview("correct", "Correct"));
 document.getElementById("player-false-positive-btn").addEventListener("click", () => submitReview("false_positive", "False Positive"));
-document.getElementById("player-lock-btn").addEventListener("click", () => submitLock(true));
+document.getElementById("player-lock-btn").addEventListener("click", () => {
+  const locking = viewMode !== "locked";
+  submitLock(locking, undefined, !locking);
+});
 document.getElementById("player-close-btn").addEventListener("click", closePlayer);
 
 document.addEventListener("click", e => {
