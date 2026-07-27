@@ -1235,6 +1235,7 @@ function updateSelectionUI(visibleRows) {
   // here (runBirda re-enables it on its own after a run).
   if (viewMode === "locked") {
     document.getElementById("run-btn").disabled = count === 0;
+    document.getElementById("rerun-cached-btn").disabled = count === 0;
   }
 
   const selectAllMobile = document.getElementById("select-all-mobile");
@@ -1423,6 +1424,7 @@ function setViewMode(mode) {
     // Candidates' Birda is day-driven, not selection-gated -- undo any
     // disabled-by-empty-selection state left over from the locked view.
     document.getElementById("run-btn").disabled = false;
+    document.getElementById("rerun-cached-btn").disabled = false;
   }
   updateLockButtonLabel();
   updateRunButtonTitle();
@@ -1441,7 +1443,10 @@ function runBirda(force) {
   // already work in this view.
   if (viewMode === "locked") {
     const ids = Array.from(selectedIds);
-    if (ids.length === 0) return;
+    if (ids.length === 0) {
+      status.textContent = "Select one or more detections first.";
+      return;
+    }
     triggerBtns.forEach(b => b.disabled = true);
     status.textContent = `Running birda on ${ids.length} selected…`;
     fetch("/api/run", {
@@ -1459,15 +1464,20 @@ function runBirda(force) {
         return loadLocked();
       })
       .catch(err => { status.textContent = "Error: " + err; })
-      .finally(() => {
-        document.getElementById("rerun-cached-btn").disabled = false;
-        updateSelectionUI(lastVisibleLockedRows);
-      });
+      // updateSelectionUI re-derives both run buttons' disabled state from
+      // the (possibly now-empty) selection, so no manual re-enable here.
+      .finally(() => updateSelectionUI(lastVisibleLockedRows));
     return;
   }
 
   const day = document.getElementById("day").value;
-  if (!day || day === "__all__") return;
+  // Birda runs per day here (the request is day-scoped server-side), so
+  // "All days" has nothing to target. This used to return silently, which
+  // just looked like the button was broken -- say why instead.
+  if (!day || day === "__all__") {
+    status.textContent = "Pick a single day first — Birda runs per day.";
+    return;
+  }
   triggerBtns.forEach(b => b.disabled = true);
   status.textContent = `Running birda on ${day}…`;
   fetch("/api/run", {
