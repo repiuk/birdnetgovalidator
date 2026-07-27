@@ -367,6 +367,19 @@ class Handler(BaseHTTPRequestHandler):
             "results": merge(to_process, cache),
         })
 
+    def _currently_locked(self, detection_ids):
+        con = candidate_finder.connect_ro()
+        try:
+            cur = con.cursor()
+            placeholders = ",".join("?" * len(detection_ids))
+            cur.execute(
+                f"SELECT detection_id FROM detection_locks WHERE detection_id IN ({placeholders});",
+                detection_ids,
+            )
+            return {row[0] for row in cur.fetchall()}
+        finally:
+            con.close()
+
     def _handle_review(self):
         length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(length) if length else b"{}"
@@ -382,18 +395,40 @@ class Handler(BaseHTTPRequestHandler):
                 {"error": "missing detection_ids or invalid verified value"}, status=400
             )
             return
+
+        # BirdNET-Go silently *skips* (no error -- {"processed": 0, "skipped": 1})
+        # a review-status change on an already-locked detection, for both
+        # correct and false_positive -- confirmed empirically against
+        # detection #100447. It also rejects comment posts on an already-
+        # locked detection (409, same rule _handle_lock works around).
+        # So: unlock first, do the review write *and* post the decision
+        # comment while still unlocked, then re-lock -- otherwise the
+        # comment alone would 409 even though the review write above
+        # succeeds. Accept/False keep working from the Locked view without
+        # the user having to unlock by hand first.
+        locked_ids = self._currently_locked(detection_ids)
+        comment_errors = []
         try:
+            if locked_ids:
+                birdnetgo_client.set_lock(list(locked_ids), False)
             birdnetgo_client.set_verification(detection_ids, verified)
+            for detection_id in detection_ids:
+                try:
+                    birdnetgo_client.post_review_decision_comment(detection_id, verified, source)
+                except Exception as e:  # noqa: BLE001 - a comment-post failure must not lose the review write
+                    comment_errors.append(str(e))
         except Exception as e:
             self._send_json({"error": str(e)}, status=500)
             return
-
-        comment_errors = []
-        for detection_id in detection_ids:
-            try:
-                birdnetgo_client.post_review_decision_comment(detection_id, verified, source)
-            except Exception as e:  # noqa: BLE001 - a comment-post failure must not lose the review write
-                comment_errors.append(str(e))
+        finally:
+            # Best-effort: a response may already be on its way out above,
+            # so a re-lock failure here has nowhere left to report to --
+            # swallow it rather than raise out of a finally mid-request.
+            if locked_ids:
+                try:
+                    birdnetgo_client.set_lock(list(locked_ids), True)
+                except Exception:
+                    pass
 
         resp = {"ok": True, "count": len(detection_ids)}
         if comment_errors:
