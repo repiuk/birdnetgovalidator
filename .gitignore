@@ -5,9 +5,11 @@ __pycache__/
 .env
 excluded_species.txt
 
-# Personal working notes — an inventory of this install's BirdNET-Go data,
-# kept locally as a thinking aid rather than published.
+# Personal working notes — an inventory of this install's BirdNET-Go data
+# and the ideas/TODOs that came out of it, kept locally as a thinking aid
+# rather than published.
 BIRDNETGO_DATA.md
+TODO.md
 
 # Generated/runtime data — regenerated from BirdNET-Go's DB, not source.
 verification_cache.json
