@@ -22,6 +22,25 @@ from candidate_finder import MODEL_NAMES, clip_info, connect_ro
 LOCAL_TZ = ZoneInfo("Europe/Amsterdam")
 
 
+def _marked_ids(cur, ids):
+    """Of the given detection ids, which have a [validator]/legacy-marker
+    comment -- i.e. were locked via this webapp, not directly in
+    BirdNET-Go's own GUI. Shared by get_locked_detections() and
+    get_locked_status_map()."""
+    if not ids:
+        return set()
+    placeholders = ",".join("?" * len(ids))
+    cur.execute(
+        f"""
+        SELECT DISTINCT detection_id FROM detection_comments
+        WHERE detection_id IN ({placeholders})
+          AND (entry LIKE '[validator]%' OR entry LIKE '[birda-validator]%');
+        """,
+        ids,
+    )
+    return {row[0] for row in cur.fetchall()}
+
+
 def get_locked_detections():
     con = connect_ro()
     try:
@@ -39,20 +58,7 @@ def get_locked_detections():
             """
         )
         rows = cur.fetchall()
-
-        ids = [r[0] for r in rows]
-        marked_ids = set()
-        if ids:
-            placeholders = ",".join("?" * len(ids))
-            cur.execute(
-                f"""
-                SELECT DISTINCT detection_id FROM detection_comments
-                WHERE detection_id IN ({placeholders})
-                  AND (entry LIKE '[validator]%' OR entry LIKE '[birda-validator]%');
-                """,
-                ids,
-            )
-            marked_ids = {row[0] for row in cur.fetchall()}
+        marked_ids = _marked_ids(cur, [r[0] for r in rows])
     finally:
         con.close()
 
@@ -76,3 +82,20 @@ def get_locked_detections():
             "locked_via_validator": rid in marked_ids,
         })
     return out
+
+
+def get_locked_status_map():
+    """detection_id -> locked_via_validator, for every currently-locked
+    detection. Lets a candidate row that's *also* currently locked show the
+    same origin pill it would in the Locked view (see webapp/server.py
+    merge()), instead of that being visible only there -- cheap since
+    detection_locks is small (tens of rows, not thousands)."""
+    con = connect_ro()
+    try:
+        cur = con.cursor()
+        cur.execute("SELECT detection_id FROM detection_locks;")
+        ids = [r[0] for r in cur.fetchall()]
+        marked_ids = _marked_ids(cur, ids)
+        return {rid: (rid in marked_ids) for rid in ids}
+    finally:
+        con.close()

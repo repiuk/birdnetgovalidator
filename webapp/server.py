@@ -88,6 +88,13 @@ def with_top_common_name(v):
 
 def merge(candidates, cache):
     marked_ids = birdnetgo_client.get_marked_detection_ids()
+    # A candidate can independently also be locked (Hold is a separate
+    # third button, not tied to Accept/False) -- surface that here too so
+    # its card shows the same origin pill the Locked view would, instead of
+    # that state only being visible over there. Omitted (not just False)
+    # for anything not locked, since "verified" status is meaningless for
+    # candidates (the base query excludes anything already reviewed).
+    lock_status = locked_finder.get_locked_status_map()
     out = []
     for c in candidates:
         rec = dict(c)
@@ -102,6 +109,8 @@ def merge(candidates, cache):
             rec["verify_perch_v2"] = NOT_RUN
             rec["overall_verdict"] = "not_run"
         rec["note_posted"] = c["detection_id"] in marked_ids
+        if c["detection_id"] in lock_status:
+            rec["locked_via_validator"] = lock_status[c["detection_id"]]
         out.append(rec)
     return out
 
@@ -310,21 +319,33 @@ class Handler(BaseHTTPRequestHandler):
         except json.JSONDecodeError:
             payload = {}
         day = payload.get("day")
+        detection_ids = payload.get("detection_ids")
         force = bool(payload.get("force", False))
         confirm_threshold = float(payload.get("confirm_threshold", verifier.CONFIRM_THRESHOLD))
-        rare_min = int(payload.get("rare_min", 1))
-        rare_max = int(payload.get("rare_max", 5))
 
-        if not day:
-            self._send_json({"error": "missing 'day'"}, status=400)
+        if detection_ids:
+            # Locked detections aren't scoped to the rolling 7-day candidate
+            # window (that's the whole point of locking one), so there's no
+            # "day" to run birda against -- target the specific selected
+            # ids instead, sourced from the locked list (the only source of
+            # arbitrary-age records with a usable clip_path).
+            ids = {int(i) for i in detection_ids}
+            to_process = [
+                d for d in locked_finder.get_locked_detections()
+                if d["detection_id"] in ids and d["clip_exists"]
+            ]
+        elif day:
+            rare_min = int(payload.get("rare_min", 1))
+            rare_max = int(payload.get("rare_max", 5))
+            candidates = load_candidates(rare_min, rare_max)
+            to_process = [c for c in candidates if local_day(c) == day and c["clip_exists"]]
+        else:
+            self._send_json({"error": "missing 'day' or 'detection_ids'"}, status=400)
             return
 
-        candidates = load_candidates(rare_min, rare_max)
-        day_candidates = [c for c in candidates if local_day(c) == day and c["clip_exists"]]
-
         cache = load_cache()
-        to_run = day_candidates if force else [
-            c for c in day_candidates if str(c["detection_id"]) not in cache
+        to_run = to_process if force else [
+            c for c in to_process if str(c["detection_id"]) not in cache
         ]
 
         if to_run:
@@ -337,10 +358,9 @@ class Handler(BaseHTTPRequestHandler):
             save_cache(cache)
 
         self._send_json({
-            "day": day,
             "ran": len(to_run),
-            "skipped_cached": len(day_candidates) - len(to_run),
-            "results": merge(day_candidates, cache),
+            "skipped_cached": len(to_process) - len(to_run),
+            "results": merge(to_process, cache),
         })
 
     def _handle_review(self):

@@ -219,7 +219,25 @@
   .locked-card input[type=checkbox] { width: 20px; height: 20px; }
   .locked-card-species { flex: 1 1 140px; }
   .locked-card-id, .locked-card-detail { flex: 0 0 auto; font-size: 0.78rem; color: var(--muted); }
-  .locked-card-model2 { flex: 1 1 calc(50% - 5px); }
+  /* Candidates' equivalent box is a <td>, which a later unconditional
+     `table td { background: transparent !important }` rule strips back to
+     the card's own background; this is a plain <div> so that rule never
+     reaches it and the raw .model2-cell grey (var(--bg)) was showing
+     through instead -- override it the same way. */
+  .locked-card-model2 { flex: 1 1 calc(50% - 5px); background: transparent !important; }
+  /* Candidates open the xc-panel as a full-width sibling <tr>; a locked
+     card has no such sibling row, so its single shared panel just lives
+     inside the card and drops to its own line via flex-basis:100% when
+     opened (harmless while display:none/closed). */
+  .locked-card .xc-panel {
+    flex-basis: 100%;
+    max-width: none;
+    margin-top: 0;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    padding: 10px;
+  }
   .pill.origin-go { background: var(--manual-bg); color: var(--manual-fg); }
   .pill.origin-validator { background: var(--lock-bg); color: var(--lock-fg); }
   .pill.status-accept { background: var(--confirm-bg); color: var(--confirm-fg); }
@@ -245,10 +263,6 @@
   }
   .btn-run:disabled { opacity: 0.6; cursor: default; }
   .btn-run.force { background: var(--disagree-fg); }
-  /* Desktop already shows "Run birda" inline (menu-panel unwraps via
-     display:contents there); this toolbar shortcut is mobile-only, where
-     the menu-panel is collapsed behind the hamburger button. */
-  #run-btn-main { display: none; }
   button#refresh-btn {
     padding: 8px 16px;
     border: none;
@@ -554,9 +568,23 @@
 
   .toolbar { gap: 8px; margin-bottom: 8px; }
   .toolbar-controls select#day { flex: 1; min-width: 0; }
+  /* Sticky, not fixed: stays in normal flow until scrolled to, then pins --
+     no spacer/height-measurement JS needed (unlike .toolbar-actions below,
+     which is fixed and needed updatePlayerBarPosition() for exactly that
+     reason). Keeps the hamburger/day-selector/Refresh reachable while
+     scrolled deep into a long card list, instead of only reachable by
+     scrolling all the way back to the top. */
+  .toolbar.toolbar-controls {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: var(--bg);
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.25);
+  }
 
   button.icon-btn { display: flex; }
-  #run-btn-main { display: inline-flex; }
 
   .dropdown-panel {
     display: none;
@@ -592,8 +620,7 @@
     padding-top: 10px;
     border-top: 1px solid var(--border);
   }
-  #menu-panel button#run-btn, #menu-panel button#cleanup-btn { min-height: 44px; font-size: 1rem; }
-  #menu-panel button#cleanup-btn { align-self: flex-start; }
+  #menu-panel button#cleanup-btn { min-height: 44px; font-size: 1rem; align-self: flex-start; }
   #menu-panel input.param { width: 70px; }
   .tabs-row { gap: 8px; }
 
@@ -766,8 +793,6 @@
   <button id="menu-btn" class="icon-btn" type="button" title="Menu" aria-label="Menu">☰</button>
   <select id="day"></select>
   <button id="refresh-btn">↻ Refresh</button>
-  <button id="run-btn-main" class="btn-run" title="Run birda for the selected day">▶ Birda</button>
-  <button id="locked-view-btn" class="btn-run" title="Browse all locked detections, regardless of age">🔒 Locked</button>
   <span id="run-status"></span>
 
   <div id="menu-panel" class="dropdown-panel">
@@ -781,10 +806,7 @@
       <div class="tab" data-filter="not_run">Not run <span class="count" id="count-not_run"></span></div>
     </div>
     <div class="menu-settings">
-      <div class="menu-row">
-        <button id="run-btn" class="btn-run">Run birda ▶</button>
-        <label class="force-check"><input type="checkbox" id="force"> re-run cached</label>
-      </div>
+      <label class="force-check"><input type="checkbox" id="force"> re-run cached</label>
       <label class="force-check">rarity min 1&ndash;max <input type="number" id="rare-max" value="5" min="1" step="1" class="param"></label>
       <label class="force-check">confirm ≥ <input type="number" id="confirm-threshold" value="0.8" min="0" max="1" step="0.01" class="param"></label>
       <button id="cleanup-btn" class="btn-run" title="Remove cache entries and birda result files for detections that have aged out of the 7-day candidate window">🧹 Cleanup</button>
@@ -837,6 +859,7 @@
     <span id="review-status" class="sub"></span>
   </div>
   <div class="toolbar-actions-buttons">
+    <button id="run-btn" class="bulk-action btn-run" title="Run birda for the selected day">▶ Birda</button>
     <button id="auto-btn" class="bulk-action btn-auto" disabled title="Write back all CC (auto-confirm) and DD (auto-reject) rows currently in the list">⚡ Auto</button>
     <button id="lock-btn" class="bulk-action btn-lock" disabled title="Lock in BirdNET-Go for a later second look, independent of Accept/False">🔒 Hold</button>
     <button id="accept-btn" class="bulk-action btn-accept" disabled>✓ Accept</button>
@@ -1178,15 +1201,24 @@ function model2Cell(v, label) {
   return `<td class="model2-cell" data-label="${label}">${pill(v.verdict)} <span class="sub">${fmtConf(v.top_confidence)}</span>${detail}</td>`;
 }
 
-// Same verdict pill + confidence + species link as model2Cell, minus the
-// xeno-canto expand toggle (that relies on a sibling <tr class="xc-row">,
-// which locked cards -- plain <div>s -- don't have; the species link still
-// opens xeno-canto directly in a new tab).
+// Same as model2Cell but as a <div> instead of a <td> (locked cards aren't
+// a table), with an explicit text label since it can't rely on the
+// td[data-label]::before CSS trick. The xc-toggle button here shares its
+// panel with its sibling model2Box in the same card (see renderLocked's
+// single trailing .xc-panel) rather than a per-table-row sibling <tr> --
+// note .model2-sci-link itself is pointer-events:none in the mobile card
+// layout (candidates included), so the toggle button is the only way to
+// reach xeno-canto from a card, not the species name text.
 function model2Box(v, label) {
   const detail = v.top_species
-    ? `<div class="model2-names">` +
-        `<a class="model2-sci-link" href="${xenoCantoUrl(v.top_species)}" target="_blank" rel="noopener"><span class="model2-sci">${v.top_species}</span></a>` +
-        `<span class="model2-common">${v.top_common_name || ""}</span>` +
+    ? `<div class="model2-detail-row">` +
+        `<div class="model2-names">` +
+          `<a class="model2-sci-link" href="${xenoCantoUrl(v.top_species)}" target="_blank" rel="noopener"><span class="model2-sci">${v.top_species}</span></a>` +
+          `<span class="model2-common">${v.top_common_name || ""}</span>` +
+        `</div>` +
+        `<button type="button" class="xc-toggle" data-species="${v.top_species}" title="Reference recordings from xeno-canto">` +
+          `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14,3.23V5.29C16.89,6.15 19,8.83 19,12C19,15.17 16.89,17.84 14,18.7V20.77C18,19.86 21,16.28 21,12C21,7.72 18,4.14 14,3.23M16.5,12C16.5,10.23 15.5,8.71 14,7.97V16C15.5,15.29 16.5,13.76 16.5,12M3,9V15H7L12,20V4L7,9H3Z"/></svg>` +
+        `</button>` +
       `</div>`
     : "";
   return `<div class="model2-cell locked-card-model2">` +
@@ -1298,7 +1330,7 @@ function render() {
     const reviewUrl = `${birdnetgoWebUrl}/ui/detections/${r.detection_id}?tab=review`;
     return `<tr class="${r.clip_exists ? "" : "no-clip"}${altClass}" data-verdict="${r.overall_verdict}">
       <td data-label="Select"><input type="checkbox" class="row-select" data-id="${r.detection_id}" ${selectedIds.has(r.detection_id) ? "checked" : ""} ${playerLocked ? "disabled" : ""}></td>
-      <td data-label="Overall">${overallPill(r.overall_verdict, r.detection_id)}</td>
+      <td data-label="Overall">${r.locked_via_validator !== undefined ? originPill(r.locked_via_validator) : ""}${overallPill(r.overall_verdict, r.detection_id)}</td>
       <td class="species-cell" data-label="Species"><a class="species-link" href="${reviewUrl}" target="_blank" rel="noopener"><span class="species-common">${r.common_name}</span>${sciLine}</a></td>
       <td data-label="ID" class="mono">${r.detection_id}</td>
       <td data-label="Date/time" class="mono">${fmtDateTime(r.detected_at_local.slice(0, 16).replace("T", " "))}</td>
@@ -1340,6 +1372,13 @@ function updateSelectionUI(visibleRows) {
   document.getElementById("player-accept-btn").disabled = count === 0;
   document.getElementById("player-false-positive-btn").disabled = count === 0;
   document.getElementById("player-lock-btn").disabled = count === 0;
+  // In the locked view, "Birda" runs on the selection instead of a day
+  // (see runBirda) -- disable it the same way as Accept/False/Unlock when
+  // nothing's selected. In candidates view it stays day-driven, untouched
+  // here (runBirda re-enables it on its own after a run).
+  if (viewMode === "locked") {
+    document.getElementById("run-btn").disabled = count === 0;
+  }
 
   const selectAll = document.getElementById("select-all");
   const selectAllMobile = document.getElementById("select-all-mobile");
@@ -1371,10 +1410,12 @@ function loadDays(selectDay) {
   return fetch("/api/days?" + getRarityParams()).then(r => r.json()).then(days => {
     const sel = document.getElementById("day");
     const prev = selectDay || sel.value;
-    sel.innerHTML = `<option value="__all__">All days</option>` + days.map(d =>
-      `<option value="${d.day}">${fmtDate(d.day)} — ${d.with_clip} candidate(s), ${d.verified} verified</option>`
-    ).join("");
-    if (prev === "__all__" || (prev && days.some(d => d.day === prev))) sel.value = prev;
+    sel.innerHTML = `<option value="__all__">All days</option>` +
+      `<option value="__locked__">🔒 Locked</option>` +
+      days.map(d =>
+        `<option value="${d.day}">${fmtDate(d.day)} — ${d.with_clip} candidate(s), ${d.verified} verified</option>`
+      ).join("");
+    if (prev === "__all__" || prev === "__locked__" || (prev && days.some(d => d.day === prev))) sel.value = prev;
     else if (days.length) sel.value = days[0].day;
   });
 }
@@ -1456,9 +1497,11 @@ function renderLocked() {
       <span class="locked-card-id mono">#${r.detection_id}</span>
       ${r.clip_exists ? `<button class="play" ${clipAttr}>▶</button>` : "—"}
       <span class="locked-card-detail mono">${fmtDateTime(r.detected_at_local.slice(0, 16).replace("T", " "))}</span>
+      <span class="locked-card-detail mono">${r.model}</span>
       <span class="locked-card-detail mono">conf ${fmtConf(r.confidence)}</span>
       ${model2Box(bn, "BirdNET (2nd)")}
       ${model2Box(pc, "Perch (2nd)")}
+      <div class="xc-panel"></div>
     </div>`;
   }).join("");
 
@@ -1507,9 +1550,23 @@ function updateLockButtonLabel() {
   }
 }
 
+// "Birda" runs on the day-scoped candidate list in candidates view, but
+// there's no day concept for locked detections (they can be any age), so
+// in the locked view it runs on the current selection instead (see
+// runBirda). Title text flips to match, same as the Lock/Hold button.
+function updateRunButtonTitle() {
+  const title = viewMode === "locked"
+    ? "Run birda for the selected locked detection(s)"
+    : "Run birda for the selected day";
+  document.getElementById("run-btn").title = title;
+}
+
+// mode is driven entirely by the #day select now (a "🔒 Locked" entry
+// alongside "All days" and each real day -- see loadDays and the #day
+// change handler below), not a separate toggle button, so this never
+// needs to touch #day itself.
 function setViewMode(mode) {
   viewMode = mode;
-  const btn = document.getElementById("locked-view-btn");
   document.getElementById("auto-btn").hidden = mode === "locked";
   // review-status lives in the now-shared bottom bar, so clear stale text
   // from the other view instead of leaving it visible across a switch.
@@ -1526,7 +1583,6 @@ function setViewMode(mode) {
   if (mode === "locked") {
     document.getElementById("candidates-view").hidden = true;
     document.getElementById("locked-view").hidden = false;
-    btn.textContent = "← Candidates";
     // Always refetch (not just on first visit) -- locks/unlocks made
     // directly in BirdNET-Go's own GUI, or a moment ago via this webapp,
     // wouldn't otherwise show up until a full page reload.
@@ -1534,23 +1590,51 @@ function setViewMode(mode) {
   } else {
     document.getElementById("candidates-view").hidden = false;
     document.getElementById("locked-view").hidden = true;
-    btn.textContent = "🔒 Locked";
     updateSelectionUI(lastVisibleRows);
+    // Candidates' Birda is day-driven, not selection-gated -- undo any
+    // disabled-by-empty-selection state left over from the locked view.
+    document.getElementById("run-btn").disabled = false;
   }
   updateLockButtonLabel();
+  updateRunButtonTitle();
 }
 
-document.getElementById("locked-view-btn").addEventListener("click", () => {
-  setViewMode(viewMode === "locked" ? "candidates" : "locked");
-});
-
 function runBirda() {
-  const day = document.getElementById("day").value;
   const force = document.getElementById("force").checked;
-  if (!day || day === "__all__") return;
-  const buttons = [document.getElementById("run-btn"), document.getElementById("run-btn-main")];
+  const btn = document.getElementById("run-btn");
   const status = document.getElementById("run-status");
-  buttons.forEach(b => { b.disabled = true; });
+
+  // Locked detections aren't day-scoped (they can be any age -- that's the
+  // whole point of the view), so there's no "day" to run birda for here.
+  // Run on the current selection instead, the same way Accept/False/Unlock
+  // already work in this view.
+  if (viewMode === "locked") {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    btn.disabled = true;
+    status.textContent = `Running birda on ${ids.length} selected…`;
+    fetch("/api/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ detection_ids: ids, force, confirm_threshold: getConfirmThreshold() }),
+    })
+      .then(r => r.json())
+      .then(resp => {
+        if (resp.error) {
+          status.textContent = "Error: " + resp.error;
+          return;
+        }
+        status.textContent = `Done: ran ${resp.ran}, skipped ${resp.skipped_cached} already cached.`;
+        return loadLocked();
+      })
+      .catch(err => { status.textContent = "Error: " + err; })
+      .finally(() => { btn.disabled = false; updateSelectionUI(lastVisibleLockedRows); });
+    return;
+  }
+
+  const day = document.getElementById("day").value;
+  if (!day || day === "__all__") return;
+  btn.disabled = true;
   status.textContent = `Running birda on ${day}…`;
   fetch("/api/run", {
     method: "POST",
@@ -1572,7 +1656,7 @@ function runBirda() {
       return Promise.all([loadCandidates(), loadDays(day)]);
     })
     .catch(err => { status.textContent = "Error: " + err; })
-    .finally(() => { buttons.forEach(b => { b.disabled = false; }); });
+    .finally(() => { btn.disabled = false; });
 }
 
 function runCleanup() {
@@ -1595,7 +1679,6 @@ function runCleanup() {
 
 document.getElementById("cleanup-btn").addEventListener("click", runCleanup);
 document.getElementById("run-btn").addEventListener("click", runBirda);
-document.getElementById("run-btn-main").addEventListener("click", runBirda);
 
 document.getElementById("refresh-btn").addEventListener("click", () => {
   const btn = document.getElementById("refresh-btn");
@@ -1825,6 +1908,12 @@ document.getElementById("menu-btn").addEventListener("click", () => {
 
 document.getElementById("search").addEventListener("input", render);
 document.getElementById("day").addEventListener("change", () => {
+  const value = document.getElementById("day").value;
+  if (value === "__locked__") {
+    setViewMode("locked");
+    return;
+  }
+  if (viewMode === "locked") setViewMode("candidates");
   enforceDayScope();
   render();
 });
@@ -1933,19 +2022,16 @@ function handlePlayClick(e) {
 document.getElementById("rows").addEventListener("click", handlePlayClick);
 document.getElementById("locked-rows").addEventListener("click", handlePlayClick);
 
-document.getElementById("rows").addEventListener("click", e => {
-  const btn = e.target.closest(".xc-toggle");
-  if (!btn) return;
-  const panel = btn.closest("tr").nextElementSibling.querySelector(".xc-panel");
-  const isActive = panel.classList.contains("open") && panel.dataset.activeSpecies === btn.dataset.species;
+function toggleXenoCantoPanel(panel, species) {
+  const isActive = panel.classList.contains("open") && panel.dataset.activeSpecies === species;
   panel.classList.remove("open");
   panel.innerHTML = "";
   delete panel.dataset.activeSpecies;
   if (isActive) return;
-  panel.dataset.activeSpecies = btn.dataset.species;
+  panel.dataset.activeSpecies = species;
   panel.classList.add("open");
   panel.innerHTML = `<span class="sub">Loading…</span>`;
-  fetch("/api/xenocanto?species=" + encodeURIComponent(btn.dataset.species))
+  fetch("/api/xenocanto?species=" + encodeURIComponent(species))
     .then(r => r.json())
     .then(data => {
       if (data.error) {
@@ -1969,6 +2055,24 @@ document.getElementById("rows").addEventListener("click", e => {
     .catch(err => {
       panel.innerHTML = `<span class="sub">Failed to load: ${err}</span>`;
     });
+}
+
+document.getElementById("rows").addEventListener("click", e => {
+  const btn = e.target.closest(".xc-toggle");
+  if (!btn) return;
+  const panel = btn.closest("tr").nextElementSibling.querySelector(".xc-panel");
+  toggleXenoCantoPanel(panel, btn.dataset.species);
+});
+
+// Locked cards share one .xc-panel per card (see renderLocked) instead of
+// a per-table-row sibling <tr> -- either of a card's two xc-toggle buttons
+// (BirdNET/Perch) opens the same panel, matching the table's one-panel-
+// per-row behavior.
+document.getElementById("locked-rows").addEventListener("click", e => {
+  const btn = e.target.closest(".xc-toggle");
+  if (!btn) return;
+  const panel = btn.closest(".locked-card").querySelector(".xc-panel");
+  toggleXenoCantoPanel(panel, btn.dataset.species);
 });
 
 document.getElementById("player-accept-btn").addEventListener("click", () => submitReview("correct", "Correct"));
