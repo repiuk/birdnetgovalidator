@@ -1149,15 +1149,27 @@ function enforceDayScope() {
   });
 }
 
+// Shared by both views so the search box behaves identically in each --
+// read the query once per render (not per row) and pass it in.
+function searchQuery() {
+  return document.getElementById("search").value.trim().toLowerCase();
+}
+
+function matchesSearch(r, q) {
+  if (!q) return true;
+  return r.species.toLowerCase().includes(q)
+    || (r.common_name || "").toLowerCase().includes(q)
+    || String(r.detection_id).includes(q);
+}
+
 function scopedData() {
-  const q = document.getElementById("search").value.trim().toLowerCase();
+  const q = searchQuery();
   const showAllDays = isAllDays();
   const selectedDay = document.getElementById("day").value;
   const threshold = getConfirmThreshold();
   return allData.filter(r => {
     if (!showAllDays && selectedDay && !r.detected_at_local.startsWith(selectedDay)) return false;
-    if (!q) return true;
-    return r.species.toLowerCase().includes(q) || r.common_name.toLowerCase().includes(q) || String(r.detection_id).includes(q);
+    return matchesSearch(r, q);
   }).map(r => withThreshold(r, threshold));
 }
 
@@ -1288,9 +1300,9 @@ function lockedMatchesFilter(r, filter) {
   return true;
 }
 
-function updateLockedCounts() {
-  const counts = { all: lockedData.length, locked_go: 0, locked_validator: 0, verified_accept: 0, verified_false: 0 };
-  lockedData.forEach(r => {
+function updateLockedCounts(scoped) {
+  const counts = { all: scoped.length, locked_go: 0, locked_validator: 0, verified_accept: 0, verified_false: 0 };
+  scoped.forEach(r => {
     if (!r.locked_via_validator) counts.locked_go++;
     if (r.locked_via_validator) counts.locked_validator++;
     if (r.verified === "correct") counts.verified_accept++;
@@ -1318,12 +1330,16 @@ function originPill(lockedViaValidator) {
 // alike. Per-row actions (Unlock/Accept/False) live in the shared bottom
 // bar instead, driven by selectedIds.
 function renderLocked() {
-  updateLockedCounts();
-  const rows = lockedData.filter(r => lockedMatchesFilter(r, lockedActiveFilter));
+  // Same two-stage shape as render(): search narrows the set the tab
+  // counts are computed over, then the active tab narrows what's shown.
+  const q = searchQuery();
+  const scoped = lockedData.filter(r => matchesSearch(r, q));
+  updateLockedCounts(scoped);
+  const rows = scoped.filter(r => lockedMatchesFilter(r, lockedActiveFilter));
   document.getElementById("locked-rows").innerHTML = rows.map(r => cardHtml(r, "locked")).join("");
 
   document.getElementById("subtitle").textContent =
-    `Showing ${rows.length} of ${lockedData.length} locked detection(s)`;
+    `Showing ${rows.length} of ${scoped.length} locked detection(s)`;
   lastVisibleLockedRows = rows;
   updateSelectionUI(rows);
 }
@@ -1722,7 +1738,12 @@ document.getElementById("menu-btn").addEventListener("click", () => {
   document.getElementById("menu-panel").classList.toggle("open");
 });
 
-document.getElementById("search").addEventListener("input", render);
+// Re-render whichever view is actually showing -- typing while in the
+// Locked view used to re-render the hidden candidates list instead, so
+// search silently did nothing there.
+document.getElementById("search").addEventListener("input", () => {
+  if (viewMode === "locked") renderLocked(); else render();
+});
 document.getElementById("day").addEventListener("change", () => {
   const value = document.getElementById("day").value;
   localStorage.setItem("birdnet_day", value);
