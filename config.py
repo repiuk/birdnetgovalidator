@@ -60,6 +60,17 @@ XENO_CANTO_API_KEY = os.environ.get("XENO_CANTO_API_KEY", "")
 RESULTS_DIR = REPO_DIR / "birda_results"
 CACHE_PATH = REPO_DIR / "verification_cache.json"
 
+# Must match BirdNET-Go's "Pre-Detection Buffer" setting (Clip Recording
+# settings in its GUI; `realtime.audio.export.precapture` in config.yaml) --
+# used to locate a detection within its exported clip for re-verification.
+# This is a global BirdNET-Go setting, not stored per-detection, and has
+# changed before (6 -> 7 seconds on this install, 2026-07-16) -- if you
+# change it in BirdNET-Go, update this too so newly-exported clips keep
+# verifying correctly. verifier.py also falls back to a same-species match
+# elsewhere in the clip when nothing overlaps this window, which covers
+# older clips exported under a since-changed value.
+BIRDNETGO_PRECAPTURE_SECONDS = float(os.environ.get("BIRDNETGO_PRECAPTURE_SECONDS", "7"))
+
 # User-maintained list of common species to never surface as candidates —
 # one Dutch common name per line (matching BIRDA_LABELS_NL_PATH), '#'
 # comments and blank lines ignored. See excluded_species.example.txt.

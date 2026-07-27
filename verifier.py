@@ -21,16 +21,22 @@ CONFIRM_THRESHOLD = 0.8
 MODELS = ["birdnet-v24", "perch-v2"]
 
 # BirdNET-Go exports clips longer than the actual detection: `precapture`
-# seconds of audio before the event plus enough after to cover it (config.yaml
-# realtime.audio.export.precapture=7, length=20 on this install). So a
-# detection's begin_time always lands `PRECAPTURE_SECONDS` into the clip, and
-# end_time lands (begin_time - end_time) later than that -- confirmed against
-# real detections (id 99679: begin/end 13000ms apart, clip audio_duration
-# 20.0s, filename timestamp matches end_time). Clips often contain other birds
+# seconds of audio before the event plus enough after to cover it (its
+# "Pre-Detection Buffer" setting, config.yaml realtime.audio.export.precapture
+# -- see config.BIRDNETGO_PRECAPTURE_SECONDS). So a detection's begin_time
+# lands PRECAPTURE_SECONDS into the clip, and end_time lands
+# (begin_time - end_time) later than that -- confirmed against real
+# detections (id 99679: begin/end 13000ms apart, clip audio_duration 20.0s,
+# filename timestamp matches end_time). Clips often contain other birds
 # calling before/after the actual detection window, so without this offset,
 # picking birda's single loudest detection anywhere in the whole clip can
 # pick up an unrelated bird instead of the one BirdNET-Go actually flagged.
-PRECAPTURE_SECONDS = 7.0
+#
+# This is a *global* BirdNET-Go setting, not recorded per-detection, and it
+# can change over time (confirmed: 6 -> 7 seconds on this install, changed
+# 2026-07-16) -- clips exported before a change no longer match this offset.
+# verdict_for()'s same-species fallback below handles those older clips.
+PRECAPTURE_SECONDS = config.BIRDNETGO_PRECAPTURE_SECONDS
 
 
 def run_birda_batch(model, clip_paths):
@@ -83,6 +89,14 @@ def top_detection(detections, window=None):
 
 def verdict_for(detections, original_species, window=None, confirm_threshold=CONFIRM_THRESHOLD):
     top = top_detection(detections, window)
+    if top is None and window is not None:
+        # Nothing overlapped the assumed detection window -- this clip may
+        # have been exported under a since-changed PRECAPTURE_SECONDS (see
+        # its definition above). Retry restricted to the original species
+        # anywhere in the clip instead of giving up with no_detection: still
+        # requires species agreement, so this can't pick up an unrelated
+        # bird calling elsewhere the way an unrestricted retry could.
+        top = top_detection([d for d in detections if d["scientific_name"] == original_species])
     if top is None:
         return "no_detection", None, None
     same_species = top["scientific_name"] == original_species
