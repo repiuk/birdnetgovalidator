@@ -88,13 +88,13 @@
     font-size: 0.9rem;
   }
   .tab {
-    padding: 8px 14px;
+    padding: 6px 10px;
     border-radius: 999px;
     border: 1px solid var(--border);
     background: var(--surface);
     color: var(--fg);
     cursor: pointer;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     white-space: nowrap;
   }
   .tab.active { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
@@ -477,6 +477,7 @@
   }
   .dropdown-panel { display: contents; }
   .tabs-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .tabs-row[hidden] { display: none; }
   .toolbar-actions-info {
     display: flex;
     align-items: center;
@@ -502,17 +503,25 @@
   /* Sticky, not fixed: stays in normal flow until scrolled to, then pins --
      no spacer/height-measurement JS needed (unlike .toolbar-actions below,
      which is fixed and needed updatePlayerBarPosition() for exactly that
-     reason). Keeps the hamburger/day-selector/Refresh reachable while
-     scrolled deep into a long card list, instead of only reachable by
-     scrolling all the way back to the top. */
-  .toolbar.toolbar-controls {
+     reason). Keeps the hamburger/day-selector/Refresh/filter-tabs reachable
+     while scrolled deep into a long card list, instead of only reachable by
+     scrolling all the way back to the top. Wraps toolbar-controls + the
+     active tabs-row as one unit so they scroll/stick together without
+     needing a separate measured top-offset for the tabs-row. */
+  .sticky-header {
     position: sticky;
     top: 0;
     z-index: 20;
     background: var(--bg);
-    padding: 8px 0;
     border-bottom: 1px solid var(--border);
     box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.25);
+  }
+  /* position: relative (not the sticky-header's own sticky) so #menu-panel's
+     absolute overlay (top: 100%) still anchors right below this row instead
+     of below the tabs-row underneath it. */
+  .toolbar.toolbar-controls {
+    position: relative;
+    padding: 8px 0;
   }
 
   button.icon-btn { display: flex; }
@@ -553,7 +562,7 @@
   }
   #menu-panel button#cleanup-btn { min-height: 44px; font-size: 1rem; align-self: flex-start; }
   #menu-panel input.param { width: 70px; }
-  .tabs-row { gap: 8px; }
+  .tabs-row { gap: 6px; }
 
   .toolbar-actions {
     position: fixed;
@@ -621,28 +630,42 @@
 <h1>BirdNET-Go Validation Candidates</h1>
 <div class="subtitle" id="subtitle">Loading…</div>
 
-<div class="toolbar toolbar-controls">
-  <button id="menu-btn" class="icon-btn" type="button" title="Menu" aria-label="Menu">☰</button>
-  <select id="day"></select>
-  <button id="refresh-btn">↻ Refresh</button>
-  <span id="run-status"></span>
+<div class="sticky-header">
+  <div class="toolbar toolbar-controls">
+    <button id="menu-btn" class="icon-btn" type="button" title="Menu" aria-label="Menu">☰</button>
+    <select id="day"></select>
+    <button id="refresh-btn">↻ Refresh</button>
+    <span id="run-status"></span>
 
-  <div id="menu-panel" class="dropdown-panel">
-    <input type="text" id="search" placeholder="Search species or ID…">
-    <div class="tabs-row">
-      <div class="tab active" data-filter="all">All <span class="count" id="count-all"></span></div>
-      <div class="tab" data-filter="auto_confirm">CC Auto-confirm <span class="count" id="count-auto_confirm"></span></div>
-      <div class="tab" data-filter="auto_reject">DD Auto-reject <span class="count" id="count-auto_reject"></span></div>
-      <div class="tab" data-filter="manual_review">MD Manual review <span class="count" id="count-manual_review"></span></div>
-      <div class="tab" data-filter="no_detection">NN No detection <span class="count" id="count-no_detection"></span></div>
-      <div class="tab" data-filter="not_run">Not run <span class="count" id="count-not_run"></span></div>
+    <div id="menu-panel" class="dropdown-panel">
+      <input type="text" id="search" placeholder="Search species or ID…">
+      <div class="menu-settings">
+        <label class="force-check"><input type="checkbox" id="force"> re-run cached</label>
+        <label class="force-check"><input type="checkbox" id="rarity-enabled"> rarity min 1&ndash;max <input type="number" id="rare-max" value="5" min="1" step="1" class="param" disabled></label>
+        <label class="force-check">confirm ≥ <input type="number" id="confirm-threshold" value="0.8" min="0" max="1" step="0.01" class="param"></label>
+        <button id="cleanup-btn" class="btn-run" title="Remove cache entries and birda result files for detections that have aged out of the 7-day candidate window">🧹 Cleanup</button>
+      </div>
     </div>
-    <div class="menu-settings">
-      <label class="force-check"><input type="checkbox" id="force"> re-run cached</label>
-      <label class="force-check"><input type="checkbox" id="rarity-enabled"> rarity min 1&ndash;max <input type="number" id="rare-max" value="5" min="1" step="1" class="param" disabled></label>
-      <label class="force-check">confirm ≥ <input type="number" id="confirm-threshold" value="0.8" min="0" max="1" step="0.01" class="param"></label>
-      <button id="cleanup-btn" class="btn-run" title="Remove cache entries and birda result files for detections that have aged out of the 7-day candidate window">🧹 Cleanup</button>
-    </div>
+  </div>
+
+  <!-- Filter tabs are a primary, frequently-used control (which verdict
+       bucket / lock bucket you're browsing), not a settings toggle, so they
+       live always-visible here rather than tucked behind the hamburger --
+       same reasoning for both views, see setViewMode for the hidden toggle. -->
+  <div class="toolbar tabs-row" id="candidate-tabs">
+    <div class="tab active" data-filter="all">All <span class="count" id="count-all"></span></div>
+    <div class="tab" data-filter="auto_confirm">CC Auto-confirm <span class="count" id="count-auto_confirm"></span></div>
+    <div class="tab" data-filter="auto_reject">DD Auto-reject <span class="count" id="count-auto_reject"></span></div>
+    <div class="tab" data-filter="manual_review">MD Manual review <span class="count" id="count-manual_review"></span></div>
+    <div class="tab" data-filter="no_detection">NN No detection <span class="count" id="count-no_detection"></span></div>
+    <div class="tab" data-filter="not_run">Not run <span class="count" id="count-not_run"></span></div>
+  </div>
+  <div class="toolbar tabs-row" id="locked-tabs" hidden>
+    <div class="tab active" data-lockfilter="all">All <span class="count" id="lcount-all"></span></div>
+    <div class="tab" data-lockfilter="locked_go">Locked (Go) <span class="count" id="lcount-locked_go"></span></div>
+    <div class="tab" data-lockfilter="locked_validator">Locked (Validator) <span class="count" id="lcount-locked_validator"></span></div>
+    <div class="tab" data-lockfilter="verified_accept">Verified Accept <span class="count" id="lcount-verified_accept"></span></div>
+    <div class="tab" data-lockfilter="verified_false">Verified False <span class="count" id="lcount-verified_false"></span></div>
   </div>
 </div>
 
@@ -651,14 +674,6 @@
 </div>
 
 <div id="locked-view" hidden>
-  <div class="toolbar tabs-row" id="locked-tabs">
-    <div class="tab active" data-lockfilter="all">All <span class="count" id="lcount-all"></span></div>
-    <div class="tab" data-lockfilter="locked_go">Locked (Go) <span class="count" id="lcount-locked_go"></span></div>
-    <div class="tab" data-lockfilter="locked_validator">Locked (Validator) <span class="count" id="lcount-locked_validator"></span></div>
-    <div class="tab" data-lockfilter="verified_accept">Verified Accept <span class="count" id="lcount-verified_accept"></span></div>
-    <div class="tab" data-lockfilter="verified_false">Verified False <span class="count" id="lcount-verified_false"></span></div>
-  </div>
-  <div class="subtitle" id="locked-subtitle"></div>
   <div class="subtitle sub" id="locked-status"></div>
   <div class="card-list" id="locked-rows"></div>
 </div>
@@ -1156,9 +1171,14 @@ function render() {
   const filterSuffix = activeFilter === "all" ? "" : ` (${escapeHtml(FILTER_LABEL[activeFilter] || activeFilter)})`;
   const rareMax = document.getElementById("rare-max").value;
   const rarityScope = isRarityEnabled() ? `rarity 1–${rareMax}` : "all detections";
+  // #day can transiently be "" or "__locked__" during the initial
+  // localStorage-restore bootstrap race (loadCandidates's own render() can
+  // fire before loadDays finishes setting the real value) -- guard against
+  // feeding either into fmtDate, which would otherwise render "Invalid Date".
+  const dayValue = document.getElementById("day").value;
   const dayScope = isAllDays()
     ? "(all days)"
-    : `for ${escapeHtml(fmtDate(document.getElementById("day").value))}`;
+    : /^\d{4}-\d{2}-\d{2}$/.test(dayValue) ? `for ${escapeHtml(fmtDate(dayValue))}` : "(loading…)";
   document.getElementById("subtitle").innerHTML =
     `<span class="nowrap">Showing ${rows.length}${filterSuffix} of ${scoped.length} candidates</span> ` +
     `<span class="nowrap">${dayScope}</span> · ` +
@@ -1288,7 +1308,7 @@ function renderLocked() {
   const rows = lockedData.filter(r => lockedMatchesFilter(r, lockedActiveFilter));
   document.getElementById("locked-rows").innerHTML = rows.map(r => cardHtml(r, "locked")).join("");
 
-  document.getElementById("locked-subtitle").textContent =
+  document.getElementById("subtitle").textContent =
     `Showing ${rows.length} of ${lockedData.length} locked detection(s)`;
   lastVisibleLockedRows = rows;
   updateSelectionUI(rows);
@@ -1358,6 +1378,8 @@ function setViewMode(mode) {
   if (mode === "locked") {
     document.getElementById("candidates-view").hidden = true;
     document.getElementById("locked-view").hidden = false;
+    document.getElementById("candidate-tabs").hidden = true;
+    document.getElementById("locked-tabs").hidden = false;
     // Always refetch (not just on first visit) -- locks/unlocks made
     // directly in BirdNET-Go's own GUI, or a moment ago via this webapp,
     // wouldn't otherwise show up until a full page reload.
@@ -1365,6 +1387,8 @@ function setViewMode(mode) {
   } else {
     document.getElementById("candidates-view").hidden = false;
     document.getElementById("locked-view").hidden = true;
+    document.getElementById("candidate-tabs").hidden = false;
+    document.getElementById("locked-tabs").hidden = true;
     updateSelectionUI(lastVisibleRows);
     // Candidates' Birda is day-driven, not selection-gated -- undo any
     // disabled-by-empty-selection state left over from the locked view.
@@ -1699,15 +1723,15 @@ document.getElementById("rarity-enabled").addEventListener("change", e => {
   document.getElementById("rare-max").disabled = !e.target.checked;
   Promise.all([loadCandidates(), loadDays()]);
 });
-// Scoped to #menu-panel: the Locked view's tabs also carry a bare .tab
+// Scoped to #candidate-tabs: the Locked view's tabs also carry a bare .tab
 // class, and an unscoped querySelectorAll(".tab") here used to also catch
 // those clicks (setting activeFilter to undefined via a missing
 // data-filter, since locked tabs use data-lockfilter -- every candidate
 // row would then fail the filter and the list would render empty until
 // "All" was clicked again).
-document.querySelectorAll("#menu-panel .tab").forEach(tab => {
+document.querySelectorAll("#candidate-tabs .tab").forEach(tab => {
   tab.addEventListener("click", () => {
-    document.querySelectorAll("#menu-panel .tab").forEach(t => t.classList.remove("active"));
+    document.querySelectorAll("#candidate-tabs .tab").forEach(t => t.classList.remove("active"));
     tab.classList.add("active");
     activeFilter = tab.dataset.filter;
     render();
@@ -1867,7 +1891,7 @@ const savedDay = localStorage.getItem("birdnet_day");
 // it's safe to always restore the last selection/filter.
 activeFilter = localStorage.getItem("birdnet_active_filter") || "all";
 lockedActiveFilter = localStorage.getItem("birdnet_locked_active_filter") || "all";
-document.querySelectorAll("#menu-panel .tab").forEach(t => {
+document.querySelectorAll("#candidate-tabs .tab").forEach(t => {
   t.classList.toggle("active", t.dataset.filter === activeFilter);
 });
 document.querySelectorAll("#locked-tabs .tab").forEach(t => {
