@@ -1623,9 +1623,14 @@ async function submitAuto() {
       status.textContent = "Error: " + errors.map(e => e.error).join("; ");
     } else {
       const total = results.reduce((sum, r) => sum + (r.count || 0), 0);
-      status.textContent = `Auto-processed ${total} detection(s) (${confirmIds.length} CC, ${rejectIds.length} DD).`;
+      status.textContent = `Auto-processed ${total} detection(s) (${confirmIds.length} CC, ${rejectIds.length} DD). Click ↻ Refresh when done reviewing.`;
     }
-    await Promise.all([loadCandidates(), loadDays()]);
+    // Deliberately do NOT reload the candidate list here: the rows just
+    // written back are now reviewed and would vanish on refetch (the server
+    // excludes reviewed detections). Keep the list frozen so the batch can be
+    // audited — and individual rows changed — before an explicit Refresh drops
+    // them. Day counts are safe to refresh; they don't touch the card list.
+    await loadDays();
   } catch (err) {
     status.textContent = "Error: " + err;
   }
@@ -1689,10 +1694,15 @@ async function submitReview(verified, label, idsOverride) {
         setActionStatus("Error: " + resp.error);
         return;
       }
-      setActionStatus(`Marked ${resp.count} as ${label}.`);
+      setActionStatus(`Marked ${resp.count} as ${label}.` +
+        (viewMode === "locked" ? "" : " Click ↻ Refresh to update the list."));
       selectedIds.clear();
       closePlayer();
-      return refreshActiveView();
+      // Candidate view: keep the list frozen (same rationale as submitAuto) so
+      // a batch review in progress isn't collapsed when one row is changed --
+      // the reviewed rows drop off only on an explicit Refresh. The Locked view
+      // still reloads so its ✓/✕ status pills reflect the change immediately.
+      return viewMode === "locked" ? refreshActiveView() : loadDays();
     })
     .catch(err => { setActionStatus("Error: " + err); })
     .finally(() => updateSelectionUI(currentVisibleRows()));
